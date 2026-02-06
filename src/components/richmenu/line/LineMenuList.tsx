@@ -1,5 +1,5 @@
 import React from 'react';
-import { RichMenu } from '../../types';
+import { RichMenu } from '@/lib/richmenuTypes';
 
 interface LineMenuListProps {
   menus: RichMenu[];

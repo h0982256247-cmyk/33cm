@@ -1,7 +1,7 @@
 import React, { useRef } from 'react';
-import { Hotspot, RichMenu, ActionType } from '../../types';
-import { Button } from '../common/Button';
-import { CANVAS_WIDTH, CANVAS_HEIGHT } from '../../constants';
+import { Hotspot, RichMenu, ActionType } from '@/lib/richmenuTypes';
+import { Button } from '@/components/richmenu/common/Button';
+import { CANVAS_WIDTH, CANVAS_HEIGHT } from '@/lib/constants';
 
 interface LineInspectorProps {
   hotspot: Hotspot | undefined;

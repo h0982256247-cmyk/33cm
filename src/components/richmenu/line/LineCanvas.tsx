@@ -1,8 +1,8 @@
 
 import React, { useRef, useState, useCallback, useEffect, useMemo } from 'react';
-import { RichMenu, Hotspot } from '../../types';
+import { RichMenu, Hotspot } from '@/lib/richmenuTypes';
 import { LineHotspotBox } from './LineHotspotBox';
-import { CANVAS_WIDTH, CANVAS_HEIGHT } from '../../constants';
+import { CANVAS_WIDTH, CANVAS_HEIGHT } from '@/lib/constants';
 
 interface LineCanvasProps {
   menu: RichMenu;
@@ -28,11 +28,11 @@ interface DragState {
   hasMoved: boolean;
 }
 
-const DRAG_THRESHOLD = 3; 
+const DRAG_THRESHOLD = 3;
 
-export const LineCanvas: React.FC<LineCanvasProps> = ({ 
-  menu, 
-  selectedHotspotId, 
+export const LineCanvas: React.FC<LineCanvasProps> = ({
+  menu,
+  selectedHotspotId,
   onSelectHotspot,
   onUpdateHotspot,
   onAddHotspot
@@ -128,7 +128,7 @@ export const LineCanvas: React.FC<LineCanvasProps> = ({
       newX = Math.max(0, Math.min(dragState.initialX + deltaX, CANVAS_WIDTH - newW));
       newY = Math.max(0, Math.min(dragState.initialY + deltaY, CANVAS_HEIGHT - newH));
     } else if (dragState.mode === 'resize' && dragState.handle) {
-      const minSize = 40; 
+      const minSize = 40;
       if (dragState.handle.includes('e')) {
         newW = Math.min(Math.max(minSize, dragState.initialWidth + deltaX), CANVAS_WIDTH - dragState.initialX);
       }
@@ -176,70 +176,70 @@ export const LineCanvas: React.FC<LineCanvasProps> = ({
 
   return (
     <div className="flex flex-col h-full overflow-hidden bg-[#F0F0F2]">
-       <div className="bg-white border-b border-border p-3 flex justify-between items-center text-[11px] text-secondary z-20 shadow-sm">
-          <div className="flex items-center gap-3">
-            <span className="font-mono bg-gray-100 px-2 py-0.5 rounded text-primary font-bold">{CANVAS_WIDTH} x {CANVAS_HEIGHT}</span>
-            <div className="h-4 w-px bg-border" />
-            <span className="flex items-center gap-1.5">
-               <span className="w-1.5 h-1.5 rounded-full bg-success"></span>
-               編輯模式
-            </span>
-          </div>
-          <div className="flex items-center gap-4">
-            <span>{menu.hotspots.length} 個作用中區域</span>
-          </div>
-       </div>
+      <div className="bg-white border-b border-border p-3 flex justify-between items-center text-[11px] text-secondary z-20 shadow-sm">
+        <div className="flex items-center gap-3">
+          <span className="font-mono bg-gray-100 px-2 py-0.5 rounded text-primary font-bold">{CANVAS_WIDTH} x {CANVAS_HEIGHT}</span>
+          <div className="h-4 w-px bg-border" />
+          <span className="flex items-center gap-1.5">
+            <span className="w-1.5 h-1.5 rounded-full bg-success"></span>
+            編輯模式
+          </span>
+        </div>
+        <div className="flex items-center gap-4">
+          <span>{menu.hotspots.length} 個作用中區域</span>
+        </div>
+      </div>
 
-       {/* 重疊提醒列 */}
-       {hasOverlap && (
-         <div className="bg-orange-500/10 text-orange-600 px-4 py-2 text-[11px] font-bold flex items-center justify-center gap-2 border-b border-orange-500/20 z-10 animate-in fade-in slide-in-from-top duration-300">
-            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-            偵測到點擊區域重疊：部分按鈕可能無法被正常觸發，建議調整位置。
-         </div>
-       )}
+      {/* 重疊提醒列 */}
+      {hasOverlap && (
+        <div className="bg-orange-500/10 text-orange-600 px-4 py-2 text-[11px] font-bold flex items-center justify-center gap-2 border-b border-orange-500/20 z-10 animate-in fade-in slide-in-from-top duration-300">
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>
+          偵測到點擊區域重疊：部分按鈕可能無法被正常觸發，建議調整位置。
+        </div>
+      )}
 
-       {/* Missing Image Warning */}
-       {!menu.imageData && (
-         <div className="bg-error/10 text-error px-4 py-2 text-xs font-medium flex items-center justify-center gap-2 border-b border-error/20 z-10 animate-pulse">
-            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-            尚未設定背景圖片，這將導致選單無法正常顯示。請至右側「選單設定」上傳。
-         </div>
-       )}
-       
-       <div className="flex-1 flex items-center justify-center p-12 overflow-auto">
-          <div 
-            ref={containerRef}
-            className="relative bg-white shadow-[0_32px_64px_rgba(0,0,0,0.15)] select-none"
-            style={{ 
-              aspectRatio: `${CANVAS_WIDTH}/${CANVAS_HEIGHT}`,
-              width: '100%',
-              maxWidth: '900px',
-              backgroundImage: menu.imageData ? `url(${menu.imageData})` : 'none',
-              backgroundSize: 'cover',
-              backgroundPosition: 'center'
-            }}
-            onMouseDown={handleBackgroundClick}
-          >
-             {!menu.imageData && (
-               <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-200 gap-4 bg-gray-50/50">
-                 <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="0.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
-                 <span className="font-medium tracking-wide">無背景圖片</span>
-               </div>
-             )}
-             
-             {menu.hotspots.map((hotspot, index) => (
-               <LineHotspotBox
-                  key={hotspot.id}
-                  hotspot={hotspot}
-                  index={index}
-                  isSelected={selectedHotspotId === hotspot.id}
-                  onSelect={onSelectHotspot}
-                  onDragStart={handleDragStart}
-                  onResizeStart={handleResizeStart}
-               />
-             ))}
-          </div>
-       </div>
+      {/* Missing Image Warning */}
+      {!menu.imageData && (
+        <div className="bg-error/10 text-error px-4 py-2 text-xs font-medium flex items-center justify-center gap-2 border-b border-error/20 z-10 animate-pulse">
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>
+          尚未設定背景圖片，這將導致選單無法正常顯示。請至右側「選單設定」上傳。
+        </div>
+      )}
+
+      <div className="flex-1 flex items-center justify-center p-12 overflow-auto">
+        <div
+          ref={containerRef}
+          className="relative bg-white shadow-[0_32px_64px_rgba(0,0,0,0.15)] select-none"
+          style={{
+            aspectRatio: `${CANVAS_WIDTH}/${CANVAS_HEIGHT}`,
+            width: '100%',
+            maxWidth: '900px',
+            backgroundImage: menu.imageData ? `url(${menu.imageData})` : 'none',
+            backgroundSize: 'cover',
+            backgroundPosition: 'center'
+          }}
+          onMouseDown={handleBackgroundClick}
+        >
+          {!menu.imageData && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-200 gap-4 bg-gray-50/50">
+              <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="0.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2" /><circle cx="8.5" cy="8.5" r="1.5" /><polyline points="21 15 16 10 5 21" /></svg>
+              <span className="font-medium tracking-wide">無背景圖片</span>
+            </div>
+          )}
+
+          {menu.hotspots.map((hotspot, index) => (
+            <LineHotspotBox
+              key={hotspot.id}
+              hotspot={hotspot}
+              index={index}
+              isSelected={selectedHotspotId === hotspot.id}
+              onSelect={onSelectHotspot}
+              onDragStart={handleDragStart}
+              onResizeStart={handleResizeStart}
+            />
+          ))}
+        </div>
+      </div>
     </div>
   );
 };

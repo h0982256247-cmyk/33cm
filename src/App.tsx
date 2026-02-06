@@ -15,9 +15,8 @@ import RichMenuApp from "@/pages/richmenu/RichMenuApp";
 export default function App() {
   return (
     <Routes>
-      {/* 入口 */}
-      <Route path="/" element={<Landing />} />
-      <Route path="/login" element={<Login />} />
+      {/* 入口直接顯示登入 */}
+      <Route path="/" element={<Login />} />
       <Route path="/home" element={<Home />} />
 
       {/* Flex Message 編輯器 */}

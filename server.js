@@ -42,6 +42,32 @@ app.get("/api/check-image", async (req, res) => {
   }
 });
 
+// Proxy for validating LINE Channel Access Token to avoid CORS
+app.post("/api/validate-token", async (req, res) => {
+  const { accessToken } = req.body;
+  if (!accessToken) return res.status(400).json({ valid: false, error: "Missing accessToken" });
+
+  try {
+    const response = await fetch("https://api.line.me/v2/bot/info", {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+
+    if (!response.ok) {
+      return res.json({ valid: false, error: `無效的 Token (HTTP ${response.status})` });
+    }
+
+    const data = await response.json();
+    return res.json({
+      valid: true,
+      botName: data.displayName || data.basicId,
+      basicId: data.basicId
+    });
+  } catch (err) {
+    console.error("Validate token error:", err);
+    return res.json({ valid: false, error: err.message || "伺服器連線錯誤" });
+  }
+});
+
 const dist = path.join(__dirname, "dist");
 app.use(express.static(dist, { index: false }));
 

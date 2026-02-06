@@ -72,24 +72,25 @@ export async function validateAccessToken(accessToken: string): Promise<{
     error?: string;
 }> {
     try {
-        const response = await fetch("https://api.line.me/v2/bot/info", {
-            headers: {
-                Authorization: `Bearer ${accessToken}`,
-            },
+        // Use local server proxy to avoid CORS issues
+        const response = await fetch("/api/validate-token", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ accessToken }),
         });
 
         if (!response.ok) {
-            const errorData = await response.json().catch(() => ({}));
             return {
                 valid: false,
-                error: errorData.message || `HTTP ${response.status}`,
+                error: `Server Error: ${response.status}`,
             };
         }
 
         const data = await response.json();
         return {
-            valid: true,
-            botName: data.displayName || data.basicId,
+            valid: data.valid,
+            botName: data.botName,
+            error: data.error,
         };
     } catch (err: any) {
         return {

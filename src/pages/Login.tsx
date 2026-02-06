@@ -11,6 +11,13 @@ type Step = "auth" | "token" | "done";
  * 2. 登入後檢查是否有 LINE Token，若無則引導綁定
  * 3. 綁定完成後導向系統選擇頁
  */
+import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { supabase } from "@/lib/supabase";
+import { hasChannel, upsertChannel, validateAccessToken } from "@/lib/channel";
+
+type Step = "auth" | "token" | "done";
+
 export default function Login() {
   const nav = useNavigate();
   const [step, setStep] = useState<Step>("auth");
@@ -33,24 +40,38 @@ export default function Login() {
     let mounted = true;
 
     const checkSession = async () => {
-      const { data } = await supabase.auth.getSession();
-      if (!mounted) return;
+      try {
+        // 設定 5 秒 timeout，避免 infinite loading
+        const timeoutPromise = new Promise((_, reject) =>
+          setTimeout(() => reject(new Error("Connection timeout")), 5000)
+        );
 
-      if (!data.session) {
+        const sessionPromise = supabase.auth.getSession();
+
+        const { data } = await Promise.race([sessionPromise, timeoutPromise]) as any;
+
+        if (!mounted) return;
+
+        if (!data?.session) {
+          setStep("auth");
+          return;
+        }
+
+        // 已登入，檢查是否有 Token
+        const hasToken = await hasChannel();
+        if (!mounted) return;
+
+        if (hasToken) {
+          nav("/home");
+        } else {
+          setStep("token");
+        }
+      } catch (err) {
+        console.error("Session check failed:", err);
+        // 出錯時停留在登入頁，讓用戶可以重試
         setStep("auth");
-        setLoading(false);
-        return;
-      }
-
-      // 已登入，檢查是否有 Token
-      const hasToken = await hasChannel();
-      if (!mounted) return;
-
-      if (hasToken) {
-        nav("/home");
-      } else {
-        setStep("token");
-        setLoading(false);
+      } finally {
+        if (mounted) setLoading(false);
       }
     };
 
@@ -61,7 +82,7 @@ export default function Login() {
 
       if (!session) {
         setStep("auth");
-        setLoading(false);
+        // 如果是登出導致的狀態變更，不需要 loading
         return;
       }
 
@@ -106,7 +127,6 @@ export default function Login() {
       }
     } catch (err: any) {
       setAuthMsg(err?.message || "登入/註冊失敗");
-    } finally {
       setLoading(false);
     }
   };
@@ -146,106 +166,138 @@ export default function Login() {
 
   if (loading && step === "auth") {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center">
-        <div className="text-white/60">載入中...</div>
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <div className="flex flex-col items-center">
+          <div className="w-8 h-8 border-4 border-green-500 border-t-transparent rounded-full animate-spin mb-4"></div>
+          <div className="text-slate-500 font-medium">系統載入中...</div>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center px-4">
-      <div className="w-full max-w-md">
-        <div className="backdrop-blur-xl bg-white/10 border border-white/20 rounded-3xl p-8 shadow-2xl">
-          {/* Logo */}
-          <div className="flex flex-col items-center mb-8">
-            <div className="w-16 h-16 bg-gradient-to-br from-green-400 to-green-600 rounded-2xl flex items-center justify-center mb-4 shadow-lg shadow-green-500/30">
-              <svg width="36" height="36" viewBox="0 0 24 24" fill="white">
-                <path d="M21.99 12.06c0-5.7-4.93-10.31-10-10.31S2 6.36 2 12.06c0 5.1 4 9.35 8.89 10.16.34.07.8.22.92.51.1.25.07.62 0 1.05l-.18 1.09c-.05.32-.24 1.25 1.09.66s7.24-4.26 7.24-4.26a9.55 9.55 0 004.03-9.21z" />
-              </svg>
-            </div>
-            <h1 className="text-2xl font-bold text-white">
-              {step === "auth" ? "登入 LINE Portal" : "綁定 LINE Channel"}
-            </h1>
-            <p className="text-white/50 text-sm mt-2 text-center">
-              {step === "auth"
-                ? "請先登入您的帳號"
-                : "輸入您的 LINE Channel Access Token 以使用完整功能"}
-            </p>
-          </div>
+    <div className="min-h-screen bg-slate-50 flex items-center justify-center px-4 py-12 sm:px-6 lg:px-8">
+      <div className="w-full max-w-md space-y-8">
 
+        {/* Logo Header */}
+        <div className="text-center">
+          <div className="mx-auto w-16 h-16 bg-gradient-to-br from-green-500 to-emerald-600 rounded-2xl flex items-center justify-center shadow-lg shadow-green-500/20 mb-6">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="white">
+              <path d="M21.99 12.06c0-5.7-4.93-10.31-10-10.31S2 6.36 2 12.06c0 5.1 4 9.35 8.89 10.16.34.07.8.22.92.51.1.25.07.62 0 1.05l-.18 1.09c-.05.32-.24 1.25 1.09.66s7.24-4.26 7.24-4.26a9.55 9.55 0 004.03-9.21z" />
+            </svg>
+          </div>
+          <h2 className="text-3xl font-bold tracking-tight text-slate-900">
+            {step === "auth" ? "歡迎使用 LINE Portal" : "綁定 LINE Channel"}
+          </h2>
+          <p className="mt-2 text-sm text-slate-600">
+            {step === "auth"
+              ? "請輸入您的帳號密碼以登入系統"
+              : "為了使用完整功能，我們需要驗證您的 Channel Token"}
+          </p>
+        </div>
+
+        {/* Card Container */}
+        <div className="bg-white py-8 px-4 shadow-xl shadow-slate-200/50 sm:rounded-2xl sm:px-10 border border-slate-100">
           {step === "auth" ? (
-            <form onSubmit={handleAuth} className="space-y-4">
+            <form onSubmit={handleAuth} className="space-y-6">
               <div>
-                <label className="block text-white/70 text-sm font-medium mb-2">Email</label>
+                <label className="block text-sm font-semibold text-slate-700 mb-2">Email 信箱</label>
                 <input
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="you@example.com"
-                  className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-green-500/50 focus:border-green-500/50 transition-all"
+                  placeholder="name@company.com"
+                  className="block w-full rounded-lg border border-slate-300 px-4 py-3 text-slate-900 placeholder-slate-400 focus:border-green-500 focus:ring-green-500 sm:text-sm transition-colors hover:border-slate-400"
                 />
               </div>
+
               <div>
-                <label className="block text-white/70 text-sm font-medium mb-2">密碼</label>
+                <label className="block text-sm font-semibold text-slate-700 mb-2">密碼</label>
                 <input
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
-                  className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-green-500/50 focus:border-green-500/50 transition-all"
+                  className="block w-full rounded-lg border border-slate-300 px-4 py-3 text-slate-900 placeholder-slate-400 focus:border-green-500 focus:ring-green-500 sm:text-sm transition-colors hover:border-slate-400"
                 />
               </div>
 
               {authMsg && (
-                <div className={`text-sm px-4 py-2 rounded-lg ${authMsg.includes("成功") ? "bg-green-500/20 text-green-300" : "bg-red-500/20 text-red-300"}`}>
+                <div className={`p-4 rounded-lg text-sm font-medium ${authMsg.includes("成功")
+                    ? "bg-green-50 text-green-700 border border-green-100"
+                    : "bg-red-50 text-red-700 border border-red-100"
+                  }`}>
                   {authMsg}
                 </div>
               )}
 
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full py-3 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white font-semibold rounded-xl shadow-lg shadow-green-500/30 transition-all disabled:opacity-50"
-              >
-                {loading ? "處理中..." : authMode === "signup" ? "註冊" : "登入"}
-              </button>
+              <div className="pt-2">
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="flex w-full justify-center rounded-xl bg-green-600 px-4 py-3.5 text-sm font-bold text-white shadow-lg shadow-green-500/20 hover:bg-green-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                >
+                  {loading ? (
+                    <span className="flex items-center gap-2">
+                      <svg className="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      處理中...
+                    </span>
+                  ) : authMode === "signup" ? (
+                    "註冊帳號"
+                  ) : (
+                    "登入系統"
+                  )}
+                </button>
+              </div>
 
-              <button
-                type="button"
-                onClick={() => setAuthMode(authMode === "signin" ? "signup" : "signin")}
-                className="w-full text-center text-white/50 hover:text-white/80 text-sm transition-colors"
-              >
-                {authMode === "signin" ? "還沒有帳號？註冊" : "已有帳號？登入"}
-              </button>
+              <div className="text-center">
+                <button
+                  type="button"
+                  onClick={() => setAuthMode(authMode === "signin" ? "signup" : "signin")}
+                  className="text-sm font-semibold text-green-600 hover:text-green-500 transition-colors"
+                >
+                  {authMode === "signin" ? "還沒有帳號？立即註冊" : "已有帳號？登入"}
+                </button>
+              </div>
             </form>
           ) : (
-            <form onSubmit={handleSaveToken} className="space-y-4">
+            <form onSubmit={handleSaveToken} className="space-y-6">
               <div>
-                <label className="block text-white/70 text-sm font-medium mb-2">Channel 名稱（自訂）</label>
+                <label className="block text-sm font-semibold text-slate-700 mb-2">Channel 名稱</label>
                 <input
                   type="text"
                   value={channelName}
                   onChange={(e) => setChannelName(e.target.value)}
-                  placeholder="例如：主帳號 OA"
-                  className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-green-500/50 focus:border-green-500/50 transition-all"
+                  placeholder="為這個帳號設別稱 (例如：主帳號 OA)"
+                  className="block w-full rounded-lg border border-slate-300 px-4 py-3 text-slate-900 placeholder-slate-400 focus:border-green-500 focus:ring-green-500 sm:text-sm transition-colors"
                 />
               </div>
+
               <div>
-                <label className="block text-white/70 text-sm font-medium mb-2">Channel Access Token</label>
-                <input
-                  type="password"
+                <label className="block text-sm font-semibold text-slate-700 mb-2">
+                  Channel Access Token
+                  <span className="ml-1 text-xs font-normal text-slate-500">(長期 Token)</span>
+                </label>
+                <textarea
+                  rows={4}
                   value={accessToken}
                   onChange={(e) => setAccessToken(e.target.value)}
-                  placeholder="貼上您的 LINE Channel Access Token"
-                  className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-green-500/50 focus:border-green-500/50 transition-all"
+                  placeholder="請貼上您的 Messaging API Channel Access Token"
+                  className="block w-full rounded-lg border border-slate-300 px-4 py-3 text-slate-900 placeholder-slate-400 focus:border-green-500 focus:ring-green-500 sm:text-sm transition-colors font-mono text-xs leading-relaxed"
                 />
-                <p className="text-white/40 text-xs mt-2">
-                  可在 LINE Developers Console → Messaging API → Channel access token 取得
+                <p className="mt-2 text-xs text-slate-500 flex items-center gap-1">
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  請至 LINE Developers Console 取得
                 </p>
               </div>
 
               {tokenMsg && (
-                <div className="text-sm px-4 py-2 rounded-lg bg-red-500/20 text-red-300">
+                <div className="p-4 rounded-lg bg-red-50 text-red-700 border border-red-100 text-sm font-medium">
                   {tokenMsg}
                 </div>
               )}
@@ -253,21 +305,33 @@ export default function Login() {
               <button
                 type="submit"
                 disabled={validating}
-                className="w-full py-3 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white font-semibold rounded-xl shadow-lg shadow-green-500/30 transition-all disabled:opacity-50"
+                className="flex w-full justify-center rounded-xl bg-green-600 px-4 py-3.5 text-sm font-bold text-white shadow-lg shadow-green-500/20 hover:bg-green-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
               >
-                {validating ? "驗證中..." : "儲存並繼續"}
+                {validating ? (
+                  <span className="flex items-center gap-2">
+                    <svg className="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    驗證並儲存...
+                  </span>
+                ) : "儲存設定"}
               </button>
 
               <button
                 type="button"
                 onClick={handleSkipToken}
-                className="w-full text-center text-white/50 hover:text-white/80 text-sm transition-colors"
+                className="w-full text-center text-sm text-slate-500 hover:text-slate-700 font-medium transition-colors"
               >
-                稍後再設定（部分功能將無法使用）
+                稍後再設定
               </button>
             </form>
           )}
         </div>
+
+        <p className="text-center text-xs text-slate-400">
+          © 2024 LINE Portal System. All rights reserved.
+        </p>
       </div>
     </div>
   );

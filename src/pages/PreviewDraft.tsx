@@ -24,7 +24,7 @@ export default function PreviewDraft() {
     })();
   }, [id]);
 
-  if (!doc || !id) return <div className="glass-bg"><div className="mx-auto max-w-5xl px-4 py-10"><div className="glass-panel p-6">載入中…</div></div></div>;
+  if (!doc || !id) return <div className="min-h-screen bg-slate-50"><div className="mx-auto max-w-5xl px-4 py-10"><div className="bg-white border border-slate-200 rounded-xl shadow-sm p-6">載入中…</div></div></div>;
 
   const rep = validateDoc(doc);
   const gate = isPublishable(doc);
@@ -33,29 +33,29 @@ export default function PreviewDraft() {
   const liffUrl = active && liffId ? `https://liff.line.me/${liffId}?token=${active.token}` : null;
 
   return (
-    <div className="glass-bg">
+    <div className="min-h-screen bg-slate-50">
       <ProgressBar docId={id} />
       <div className="mx-auto max-w-5xl px-4 pt-4">
-        <div className="glass-panel p-4 flex items-center justify-between">
+        <div className="bg-white border border-slate-200 rounded-xl shadow-sm p-4 flex items-center justify-between">
           <div>
             <div className="text-lg font-semibold">預覽與發布</div>
             <div className="text-sm opacity-70">{rep.status === "publishable" ? "✅ 可發布" : rep.status === "previewable" ? "⚠️ 可預覽不可發布（外部圖）" : "📝 草稿（有錯誤）"}</div>
           </div>
           <div className="flex gap-2">
-            <button className="glass-btn glass-btn--secondary" onClick={() => nav(`/drafts/${id}/edit`)}>返回編輯</button>
-            <button className="glass-btn glass-btn--secondary" onClick={() => nav("/drafts")}>草稿列表</button>
+            <button className="px-3 py-1.5 bg-white border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 transition-colors shadow-sm" onClick={() => nav(`/drafts/${id}/edit`)}>返回編輯</button>
+            <button className="px-3 py-1.5 bg-white border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 transition-colors shadow-sm" onClick={() => nav("/drafts")}>草稿列表</button>
           </div>
         </div>
       </div>
 
       <div className="mx-auto max-w-5xl px-4 py-4 grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <div className="glass-panel p-4">
+        <div className="bg-white border border-slate-200 rounded-xl shadow-sm p-4">
           <div className="font-semibold">預覽</div>
           <div className="mt-4"><FlexPreview doc={doc} /></div>
         </div>
 
         <div className="space-y-4">
-          <div className="glass-panel p-4">
+          <div className="bg-white border border-slate-200 rounded-xl shadow-sm p-4">
             <div className="font-semibold">驗證結果</div>
             <div className="mt-2 text-sm space-y-2">
               {rep.errors.map((e, i) => <div key={i} className="text-red-600">❌ {e.message}</div>)}
@@ -64,12 +64,12 @@ export default function PreviewDraft() {
             </div>
           </div>
 
-          <div className="glass-panel p-4">
+          <div className="bg-white border border-slate-200 rounded-xl shadow-sm p-4">
             <div className="font-semibold">發布（固定版本）</div>
             <div className="mt-2 text-sm opacity-70">重發會產生新版本，舊連結自動停用。</div>
             {msg ? <div className="mt-2 text-sm text-red-600">{msg}</div> : null}
             <div className="mt-4 flex gap-2">
-              <button className="glass-btn flex-1" disabled={!gate.ok || busy} onClick={async () => {
+              <button className="flex-1 px-4 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed" disabled={!gate.ok || busy} onClick={async () => {
                 setMsg(null); setBusy(true);
                 try { await publishDoc(id); setActive(await getActiveShareForDoc(id)); }
                 catch (e: any) { setMsg(e.message === "NOT_PUBLISHABLE" ? "目前不可發布：請修正錯誤或改用上傳圖片。" : "發布失敗"); }
@@ -79,7 +79,7 @@ export default function PreviewDraft() {
 
             {active ? (
               <div className="mt-4 space-y-2">
-                <div className="glass-badge">目前版本：v{active.version_no}</div>
+                <div className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-800 border border-slate-200">目前版本：v{active.version_no}</div>
                 {shareUrl || liffUrl ? (
                   <div className="p-3 bg-white/50 rounded-xl border border-white/40 space-y-2">
                     <div className="text-xs font-medium opacity-70">分享連結</div>
@@ -88,7 +88,7 @@ export default function PreviewDraft() {
                         {shareUrl || liffUrl}
                       </code>
                       <button
-                        className="glass-btn glass-btn--secondary px-4 py-1.5 text-xs whitespace-nowrap"
+                        className="px-4 py-1.5 text-xs bg-white border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 transition-colors shadow-sm whitespace-nowrap"
                         onClick={() => navigator.clipboard.writeText((shareUrl || liffUrl)!)}
                       >
                         複製網址

@@ -41,14 +41,18 @@ export default function Login() {
 
     const checkSession = async () => {
       try {
-        // 設定 5 秒 timeout，避免 infinite loading
+        // 設定 3 秒 timeout (縮短等待時間)
         const timeoutPromise = new Promise((_, reject) =>
-          setTimeout(() => reject(new Error("Connection timeout")), 5000)
+          setTimeout(() => reject(new Error("Connection timeout")), 3000)
         );
 
         const sessionPromise = supabase.auth.getSession();
 
-        const { data } = await Promise.race([sessionPromise, timeoutPromise]) as any;
+        // 加上 Promise.race 避免 Supabase client 卡住
+        const result = await Promise.race([sessionPromise, timeoutPromise]) as any;
+        const { data, error } = result || {};
+
+        if (error) throw error;
 
         if (!mounted) return;
 
@@ -58,18 +62,27 @@ export default function Login() {
         }
 
         // 已登入，檢查是否有 Token
-        const hasToken = await hasChannel();
+        // 這裡也加上 timeout 保險
+        const tokenCheckPromise = hasChannel();
+        const hasToken = await Promise.race([
+          tokenCheckPromise,
+          new Promise((_, r) => setTimeout(() => r(new Error("Token check timeout")), 3000))
+        ]) as boolean;
+
         if (!mounted) return;
 
-        if (hasToken) {
+        if (hasToken === true) { // 確保是 boolean true
           nav("/home");
         } else {
           setStep("token");
         }
       } catch (err) {
-        console.error("Session check failed:", err);
-        // 出錯時停留在登入頁，讓用戶可以重試
-        setStep("auth");
+        console.warn("Session check failed or timed out:", err);
+        // 出錯時停留在登入頁，讓用戶可以重試，而不是卡在 loading
+        if (mounted) {
+          setStep("auth");
+          setAuthMsg("連線逾時，請檢查網路或重新登入");
+        }
       } finally {
         if (mounted) setLoading(false);
       }
@@ -224,8 +237,8 @@ export default function Login() {
 
               {authMsg && (
                 <div className={`p-4 rounded-lg text-sm font-medium ${authMsg.includes("成功")
-                    ? "bg-green-50 text-green-700 border border-green-100"
-                    : "bg-red-50 text-red-700 border border-red-100"
+                  ? "bg-green-50 text-green-700 border border-green-100"
+                  : "bg-red-50 text-red-700 border border-red-100"
                   }`}>
                   {authMsg}
                 </div>

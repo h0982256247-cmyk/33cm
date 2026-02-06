@@ -94,7 +94,14 @@ export default function EditDraft() {
   };
 
   if (!doc || !id) {
-    return <div className="glass-bg"><div className="mx-auto max-w-5xl px-4 py-10"><div className="glass-panel p-6">載入中…</div></div></div>;
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <div className="bg-white border border-slate-200 shadow-sm rounded-xl p-8 flex flex-col items-center">
+          <div className="animate-spin w-8 h-8 boundary-t-2 border-b-2 border-slate-900 rounded-full mb-4"></div>
+          <div className="text-slate-600 font-medium">載入草稿中...</div>
+        </div>
+      </div>
+    );
   }
 
   // Safe access for carousel cards
@@ -142,11 +149,11 @@ export default function EditDraft() {
   };
 
   return (
-    <div className="glass-bg">
+    <div className="min-h-screen bg-slate-50 pb-20">
       <ProgressBar docId={id} />
 
       <div className="mx-auto max-w-5xl px-4 pt-4">
-        <div className="glass-panel p-4 flex items-center justify-between">
+        <div className="bg-white border border-slate-200 shadow-sm rounded-xl p-4 flex items-center justify-between sticky top-4 z-30">
           <div className="flex-1 mr-4">
             <input
               type="text"
@@ -161,7 +168,7 @@ export default function EditDraft() {
             <div className="flex items-center gap-2">
               <span className="text-sm opacity-70">卡片大小</span>
               <select
-                className="glass-input py-1 text-sm"
+                className="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
                 value={(doc as any).bubbleSize || "kilo"}
                 onChange={(e) => {
                   if (doc.type === "folder") return;
@@ -175,7 +182,7 @@ export default function EditDraft() {
                 <option value="giga">Giga (最大)</option>
               </select>
             </div>
-            <button className="glass-btn glass-btn--secondary" onClick={async () => {
+            <button className="px-3 py-1.5 text-sm bg-white border border-slate-200 text-slate-600 font-medium rounded-lg hover:bg-slate-50 transition-colors shadow-sm" onClick={async () => {
               const name = prompt("範本名稱（儲存後可在「新增草稿」直接使用）");
               if (!name) return;
               try {
@@ -185,7 +192,7 @@ export default function EditDraft() {
                 alert(e?.message || String(e));
               }
             }}>另存為範本</button>
-            <button className="glass-btn glass-btn--secondary" onClick={() => nav("/drafts")}>回草稿</button>
+            <button className="px-3 py-1.5 text-sm bg-white border border-slate-200 text-slate-600 font-medium rounded-lg hover:bg-slate-50 transition-colors shadow-sm" onClick={() => nav("/drafts")}>回草稿</button>
           </div>
         </div>
 
@@ -204,7 +211,7 @@ export default function EditDraft() {
                   <input
                     key={c.id}
                     autoFocus
-                    className="glass-input text-sm py-1 px-2 w-24 text-center rounded-full"
+                    className="px-2 py-1 text-sm bg-white border border-slate-200 rounded-lg text-center w-24 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none"
                     defaultValue={c.name || defaultLabel}
                     onBlur={(e) => {
                       const val = e.target.value.trim();
@@ -253,7 +260,7 @@ export default function EditDraft() {
                       scheduleSave({ ...doc, cards: nextCards });
                       setSelectedCardIdx(idx);
                     }}
-                    className={`glass-btn text-sm whitespace-nowrap cursor-move rounded-full px-4 ${selectedCardIdx === idx ? (isSpecial ? "bg-purple-100 border-purple-300 text-purple-700 font-medium" : "bg-blue-100 border-blue-300 text-blue-700 font-medium") : "glass-btn--secondary hover:bg-gray-100"}`}
+                    className={`px-4 py-2 text-sm whitespace-nowrap cursor-move rounded-full border transition-all shadow-sm ${selectedCardIdx === idx ? (isSpecial ? "bg-purple-100 border-purple-300 text-purple-700 font-bold ring-2 ring-purple-500/20" : "bg-blue-100 border-blue-300 text-blue-700 font-bold ring-2 ring-blue-500/20") : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"}`}
                     onClick={(e) => {
                       // Prevent click during drag
                       if ((e.currentTarget as any)._isDragging) return;
@@ -270,7 +277,7 @@ export default function EditDraft() {
 
               <div className="relative">
                 <select
-                  className="glass-btn glass-btn--secondary text-sm px-3 pr-8 rounded-full appearance-none cursor-pointer bg-white hover:bg-gray-50"
+                  className="px-3 pr-8 py-2 text-sm bg-white border border-slate-200 text-slate-700 font-medium rounded-full cursor-pointer hover:bg-slate-50 transition-all shadow-sm appearance-none focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
                   value=""
                   onChange={(e) => {
                     const cardType = e.target.value;
@@ -313,7 +320,7 @@ export default function EditDraft() {
             </div>
 
             <div className="flex gap-2">
-              <button className="glass-btn glass-btn--secondary text-sm text-blue-600" onClick={() => {
+              <button className="px-3 py-1.5 text-sm bg-white border border-slate-200 text-blue-600 font-medium rounded-lg hover:bg-blue-50 hover:border-blue-200 transition-colors shadow-sm" onClick={() => {
                 const current = doc.cards[selectedCardIdx];
                 const newCard = JSON.parse(JSON.stringify(current));
                 newCard.id = uid("card_");
@@ -324,7 +331,7 @@ export default function EditDraft() {
               }}>複製當前</button>
 
               {doc.cards.length > 1 && (
-                <button className="glass-btn glass-btn--secondary text-sm text-red-600" onClick={() => {
+                <button className="px-3 py-1.5 text-sm bg-white border border-slate-200 text-red-600 font-medium rounded-lg hover:bg-red-50 hover:border-red-200 transition-colors shadow-sm" onClick={() => {
                   if (!confirm("確定刪除此卡片？")) return;
                   const nextCards = doc.cards.filter((_, i) => i !== selectedCardIdx);
                   scheduleSave({ ...doc, cards: nextCards });
@@ -346,10 +353,10 @@ export default function EditDraft() {
                 subtitle="上傳圖片，圖片會佔滿整張卡片"
                 open={open === "hero"}
                 onToggle={() => setOpen(open === "hero" ? "body" : "hero")}
-                right={<span className="glass-badge glass-badge--purple">特殊卡片</span>}
+                right={<span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800 border border-purple-200">特殊卡片</span>}
               >
                 <div className="space-y-3">
-                  <label className="glass-btn glass-btn--secondary w-full justify-center">
+                  <label className="flex items-center justify-center w-full px-4 py-3 bg-white border border-dashed border-slate-300 rounded-xl cursor-pointer hover:bg-slate-50 hover:border-slate-400 transition-all text-sm font-medium text-slate-600 group">
                     上傳圖片
                     <input type="file" accept="image/*" className="hidden" onChange={async (e) => {
                       const file = e.target.files?.[0];
@@ -368,10 +375,11 @@ export default function EditDraft() {
                     }} />
                   </label>
 
-                  <div className="mt-3">
-                    <div className="glass-label mb-2">圖片比例</div>
+                  <div className="mt-4">
+                    <div className="text-sm font-semibold text-slate-700 mb-2">圖片比例</div>
                     <select
-                      className="glass-input"
+                      <select
+                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
                       value={specialSection.ratio || "2:3"}
                       onChange={(e) => setSection({ ...specialSection, ratio: e.target.value as any })}
                     >
@@ -390,14 +398,15 @@ export default function EditDraft() {
                 subtitle="半透明背景，可調整高度與顏色"
                 open={open === "body"}
                 onToggle={() => setOpen(open === "body" ? "footer" : "body")}
-                right={<span className="glass-badge">{specialSection.body.filter((c: any) => c.enabled).length} 個</span>}
+                right={<span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-800 border border-slate-200">{specialSection.body.filter((c: any) => c.enabled).length} 個</span>}
               >
                 <div className="space-y-3">
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <div className="glass-label mb-2">覆蓋層高度</div>
+                      <div className="text-sm font-semibold text-slate-700 mb-2">覆蓋層高度</div>
                       <select
-                        className="glass-input"
+                        <select
+                        className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all border-r-[0.5rem] border-transparent"
                         value={specialSection.overlay?.height || "auto"}
                         onChange={(e) => setSection({ ...specialSection, overlay: { ...specialSection.overlay, height: e.target.value as any } })}
                       >
@@ -410,7 +419,7 @@ export default function EditDraft() {
                       </select>
                     </div>
                     <div>
-                      <div className="glass-label mb-2">背景顏色</div>
+                      <div className="text-sm font-semibold text-slate-700 mb-2">背景顏色</div>
                       <div className="flex gap-2">
                         <input
                           type="color"
@@ -424,7 +433,7 @@ export default function EditDraft() {
                         <div className="flex-1">
                           <input
                             type="text"
-                            className="glass-input text-sm"
+                            className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
                             value={specialSection.overlay?.backgroundColor || "#03303Acc"}
                             onChange={(e) => setSection({ ...specialSection, overlay: { ...specialSection.overlay, backgroundColor: e.target.value } })}
                             placeholder="#03303Acc"
@@ -435,35 +444,35 @@ export default function EditDraft() {
                     </div>
                   </div>
 
-                  <div className="border-t pt-3 mt-3">
-                    <div className="glass-label mb-2">覆蓋層內容</div>
-                    <div className="grid grid-cols-3 gap-2 mb-3">
-                      <button className="glass-btn text-xs py-2" onClick={() => {
+                  <div className="border-t border-slate-200 pt-4 mt-4">
+                    <div className="text-sm font-semibold text-slate-700 mb-3">覆蓋層內容</div>
+                    <div className="grid grid-cols-3 gap-2 mb-4">
+                      <button className="px-3 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg text-xs font-medium hover:bg-slate-50 hover:text-blue-600 hover:border-blue-200 transition-all shadow-sm" onClick={() => {
                         const next = [...specialSection.body, { id: uid("t_"), kind: "title", enabled: true, text: "標題", size: "lg", weight: "bold", color: "#FFFFFF", align: "start" }];
                         setSection({ ...specialSection, body: next });
                       }}>＋ 標題</button>
-                      <button className="glass-btn text-xs py-2" onClick={() => {
+                      <button className="px-3 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg text-xs font-medium hover:bg-slate-50 hover:text-blue-600 hover:border-blue-200 transition-all shadow-sm" onClick={() => {
                         const next = [...specialSection.body, { id: uid("p_"), kind: "paragraph", enabled: true, text: "描述文字…", size: "md", weight: "regular", color: "#FFFFFF", wrap: true }];
                         setSection({ ...specialSection, body: next });
                       }}>＋ 段落</button>
-                      <button className="glass-btn text-xs py-2" onClick={() => {
+                      <button className="px-3 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg text-xs font-medium hover:bg-slate-50 hover:text-blue-600 hover:border-blue-200 transition-all shadow-sm" onClick={() => {
                         const next = [...specialSection.body, { id: uid("kv_"), kind: "key_value", enabled: true, label: "標籤", value: "內容" }];
                         setSection({ ...specialSection, body: next });
                       }}>＋ 標籤數值</button>
                     </div>
 
                     {specialSection.body.map((c: any, idx: number) => (
-                      <div key={c.id} className="glass-panel p-3 mb-2">
+                      <div key={c.id} className="bg-white border border-slate-200 rounded-xl p-4 mb-3 shadow-sm relative group/item">
                         <div className="flex items-center justify-between mb-2">
-                          <div className="font-semibold text-sm">{idx + 1}. {c.kind}</div>
-                          <button className="glass-btn glass-btn--secondary px-2 py-1 text-xs text-red-600" onClick={() => {
+                          <div className="font-semibold text-sm text-slate-700">{idx + 1}. {c.kind === 'paragraph' ? '段落' : c.kind === 'title' ? '標題' : c.kind === 'key_value' ? '標籤數值' : c.kind}</div>
+                          <button className="px-2 py-1 bg-white border border-slate-200 rounded text-xs text-red-500 hover:bg-red-50 hover:border-red-200 transition-colors" onClick={() => {
                             const next = specialSection.body.filter((_: any, i: number) => i !== idx);
                             setSection({ ...specialSection, body: next });
                           }}>刪除</button>
                         </div>
                         {(c.kind === "title" || c.kind === "paragraph") && (
-                          <div className="space-y-2">
-                            <textarea className="glass-input text-sm" rows={2} value={c.text} onChange={(e) => {
+                          <div className="space-y-3 mt-2">
+                            <textarea className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all" rows={2} value={c.text} onChange={(e) => {
                               const next = [...specialSection.body]; next[idx] = { ...c, text: e.target.value };
                               setSection({ ...specialSection, body: next });
                             }} />
@@ -474,9 +483,9 @@ export default function EditDraft() {
                                   setSection({ ...specialSection, body: next });
                                 }} />
                               </div>
-                              <div className="w-20">
-                                <div className="glass-label text-xs mb-1">大小</div>
-                                <select className="glass-input text-sm" value={c.size} onChange={(e) => {
+                              <div className="w-24">
+                                <div className="text-xs font-semibold text-slate-500 mb-1">大小</div>
+                                <select className="w-full px-2 py-1.5 bg-white border border-slate-200 rounded-lg text-sm text-slate-700" value={c.size} onChange={(e) => {
                                   const next = [...specialSection.body]; next[idx] = { ...c, size: e.target.value };
                                   setSection({ ...specialSection, body: next });
                                 }}>
@@ -488,12 +497,12 @@ export default function EditDraft() {
                           </div>
                         )}
                         {c.kind === "key_value" && (
-                          <div className="grid grid-cols-2 gap-2">
-                            <input className="glass-input text-sm" placeholder="標籤" value={c.label} onChange={(e) => {
+                          <div className="grid grid-cols-2 gap-3 mt-2">
+                            <input className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm" placeholder="標籤" value={c.label} onChange={(e) => {
                               const next = [...specialSection.body]; next[idx] = { ...c, label: e.target.value };
                               setSection({ ...specialSection, body: next });
                             }} />
-                            <input className="glass-input text-sm" placeholder="數值" value={c.value} onChange={(e) => {
+                            <input className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm" placeholder="數值" value={c.value} onChange={(e) => {
                               const next = [...specialSection.body]; next[idx] = { ...c, value: e.target.value };
                               setSection({ ...specialSection, body: next });
                             }} />
@@ -512,11 +521,17 @@ export default function EditDraft() {
                 subtitle="上傳影片檔案（MP4，最大 200MB）與預覽圖"
                 open={open === "hero"}
                 onToggle={() => setOpen(open === "hero" ? "body" : "hero")}
-                right={<span className="glass-badge">影片</span>}
+                right={<span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 border border-red-200">影片</span>}
               >
                 <div className="space-y-3">
-                  <label className="glass-btn glass-btn--secondary w-full justify-center">
-                    上傳影片
+                  <label className="flex items-center justify-center w-full px-4 py-8 border-2 border-dashed border-slate-300 rounded-xl hover:bg-slate-50 hover:border-slate-400 transition-all cursor-pointer group">
+                    <div className="flex flex-col items-center gap-2">
+                      <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 group-hover:bg-white group-hover:text-red-500 transition-colors">
+                        <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
+                      </div>
+                      <span className="text-sm font-medium text-slate-600 group-hover:text-slate-800">上傳影片 (MP4)</span>
+                      <span className="text-xs text-slate-400">Max 200MB</span>
+                    </div>
                     <input type="file" accept="video/mp4" className="hidden" onChange={async (e) => {
                       const file = e.target.files?.[0];
                       if (!file) return;
@@ -551,8 +566,11 @@ export default function EditDraft() {
                       }
                     }} />
                   </label>
-                  <label className="glass-btn glass-btn--secondary w-full justify-center">
-                    上傳預覽圖
+                  <label className="flex items-center justify-center w-full px-4 py-4 border-2 border-dashed border-slate-300 rounded-xl hover:bg-slate-50 hover:border-slate-400 transition-all cursor-pointer group">
+                    <span className="text-sm font-medium text-slate-500 group-hover:text-slate-700 flex items-center gap-2">
+                      <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                      上傳預覽圖
+                    </span>
                     <input type="file" accept="image/*" className="hidden" onChange={async (e) => {
                       const file = e.target.files?.[0];
                       if (!file) return;
@@ -569,10 +587,11 @@ export default function EditDraft() {
                       }
                     }} />
                   </label>
-                  <div className="mt-3">
-                    <div className="glass-label mb-2">影片比例</div>
+                  <div className="mt-4">
+                    <div className="text-sm font-semibold text-slate-700 mb-2">影片比例</div>
                     <select
-                      className="glass-input"
+                      <select
+                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
                       value={heroVideo.ratio || "16:9"}
                       onChange={(e) => {
                         const regularSection = section as any;
@@ -594,57 +613,57 @@ export default function EditDraft() {
                 title="內容設定"
                 open={open === "body"}
                 onToggle={() => setOpen(open === "body" ? "footer" : "body")}
-                right={<span className="glass-badge">{section.body.filter((c: any) => c.enabled).length} 個</span>}
+                right={<span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-800 border border-slate-200">{section.body.filter((c: any) => c.enabled).length} 個</span>}
               >
                 <div className="space-y-3">
                   <div className="grid grid-cols-3 gap-2">
-                    <button className="glass-btn text-xs py-2" onClick={() => {
+                    <button className="px-3 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg text-xs font-medium hover:bg-slate-50 hover:text-blue-600 hover:border-blue-200 transition-all shadow-sm" onClick={() => {
                       const next = [...section.body, { id: uid("t_"), kind: "title", enabled: true, text: "新標題", size: "lg", weight: "bold", color: "#111111", align: "start" }];
                       setSection({ ...section, body: next });
                     }}>＋ 標題</button>
-                    <button className="glass-btn text-xs py-2" onClick={() => {
+                    <button className="px-3 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg text-xs font-medium hover:bg-slate-50 hover:text-blue-600 hover:border-blue-200 transition-all shadow-sm" onClick={() => {
                       const next = [...section.body, { id: uid("p_"), kind: "paragraph", enabled: true, text: "新段落…", size: "md", color: "#333333", wrap: true }];
                       setSection({ ...section, body: next });
                     }}>＋ 段落</button>
-                    <button className="glass-btn text-xs py-2" onClick={() => {
+                    <button className="px-3 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg text-xs font-medium hover:bg-slate-50 hover:text-blue-600 hover:border-blue-200 transition-all shadow-sm" onClick={() => {
                       const next = [...section.body, { id: uid("kv_"), kind: "key_value", enabled: true, label: "標籤", value: "內容", action: { type: "uri", uri: "https://example.com" } }];
                       setSection({ ...section, body: next });
                     }}>＋ 標籤數值</button>
-                    <button className="glass-btn text-xs py-2" onClick={() => {
+                    <button className="px-3 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg text-xs font-medium hover:bg-slate-50 hover:text-blue-600 hover:border-blue-200 transition-all shadow-sm" onClick={() => {
                       const next = [...section.body, { id: uid("l_"), kind: "list", enabled: true, items: [{ id: uid("i_"), text: "清單項目" }] }];
                       setSection({ ...section, body: next });
                     }}>＋ 列表</button>
-                    <button className="glass-btn text-xs py-2" onClick={() => {
+                    <button className="px-3 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg text-xs font-medium hover:bg-slate-50 hover:text-blue-600 hover:border-blue-200 transition-all shadow-sm" onClick={() => {
                       const next = [...section.body, { id: uid("d_"), kind: "divider", enabled: true }];
                       setSection({ ...section, body: next });
                     }}>＋ 分隔線</button>
-                    <button className="glass-btn text-xs py-2" onClick={() => {
+                    <button className="px-3 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg text-xs font-medium hover:bg-slate-50 hover:text-blue-600 hover:border-blue-200 transition-all shadow-sm" onClick={() => {
                       const next = [...section.body, { id: uid("s_"), kind: "spacer", enabled: true, size: "md" }];
                       setSection({ ...section, body: next });
                     }}>＋ 留白</button>
                   </div>
 
                   {section.body.map((c: any, idx: number) => (
-                    <div key={c.id} className="glass-panel p-4">
+                    <div key={c.id} className="bg-white border border-slate-200 rounded-xl p-4 mb-3 shadow-sm relative group/item">
                       <div className="flex items-center justify-between">
                         <div className="font-semibold text-sm">{idx + 1}. {c.kind}</div>
                         <div className="flex items-center gap-1">
                           <button
-                            className="glass-btn glass-btn--secondary p-1.5 text-gray-500 hover:text-gray-900 disabled:opacity-30 disabled:hover:text-gray-500"
+                            className="p-1 text-slate-400 hover:text-slate-700 bg-slate-100 hover:bg-slate-200 rounded transition-colors disabled:opacity-30"
                             disabled={idx === 0}
                             onClick={() => setSection({ ...section, body: moveItem(section.body, idx, idx - 1) })}
                           >
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 15l-6-6-6 6" /></svg>
                           </button>
                           <button
-                            className="glass-btn glass-btn--secondary p-1.5 text-gray-500 hover:text-gray-900 disabled:opacity-30 disabled:hover:text-gray-500"
+                            className="p-1 text-slate-400 hover:text-slate-700 bg-slate-100 hover:bg-slate-200 rounded transition-colors disabled:opacity-30"
                             disabled={idx === section.body.length - 1}
                             onClick={() => setSection({ ...section, body: moveItem(section.body, idx, idx + 1) })}
                           >
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 9l6 6 6-6" /></svg>
                           </button>
                           <div className="w-px h-4 bg-gray-300 mx-1"></div>
-                          <button className="glass-btn glass-btn--secondary px-3 py-1.5 text-xs text-red-600 hover:bg-red-50" onClick={() => {
+                          <button className="px-2 py-1 ml-2 bg-white border border-slate-200 rounded text-xs text-red-500 hover:bg-red-50 hover:border-red-200 transition-colors" onClick={() => {
                             const next = [...section.body]; next.splice(idx, 1);
                             setSection({ ...section, body: next });
                           }}>刪除</button>
@@ -654,8 +673,8 @@ export default function EditDraft() {
                       {(c.kind === "title" || c.kind === "paragraph") ? (
                         <div className="mt-3 space-y-3">
                           <div>
-                            <div className="glass-label mb-2">文字內容</div>
-                            <textarea className="glass-input" rows={c.kind === "title" ? 2 : 3} value={c.text} onChange={(e) => {
+                            <div className="text-sm font-semibold text-slate-700 mb-2">文字內容</div>
+                            <textarea className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-sans" rows={c.kind === "title" ? 2 : 3} value={c.text} onChange={(e) => {
                               const next = [...section.body]; next[idx] = { ...c, text: e.target.value };
                               setSection({ ...section, body: next });
                             }} />
@@ -679,8 +698,8 @@ export default function EditDraft() {
                                 />
                               </div>
                               <div className="w-24">
-                                <div className="glass-label mb-1">大小</div>
-                                <select className="glass-input w-full py-1.5" value={c.size} onChange={(e) => {
+                                <div className="text-sm font-semibold text-slate-700 mb-1">大小</div>
+                                <select className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all" value={c.size} onChange={(e) => {
                                   const next = [...section.body]; next[idx] = { ...c, size: e.target.value };
                                   setSection({ ...section, body: next });
                                 }}>
@@ -690,8 +709,8 @@ export default function EditDraft() {
                                 </select>
                               </div>
                               <div className="w-24">
-                                <div className="glass-label mb-1">粗細</div>
-                                <select className="glass-input w-full py-1.5" value={c.weight || "regular"} onChange={(e) => {
+                                <div className="text-sm font-semibold text-slate-700 mb-1">粗細</div>
+                                <select className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all" value={c.weight || "regular"} onChange={(e) => {
                                   const next = [...section.body]; next[idx] = { ...c, weight: e.target.value as any };
                                   setSection({ ...section, body: next });
                                 }}>
@@ -707,14 +726,14 @@ export default function EditDraft() {
                       {c.kind === "key_value" ? (
                         <div className="mt-3 space-y-3">
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                            <div><div className="glass-label mb-2">標籤名稱 (Label)</div><input className="glass-input" value={c.label} onChange={(e) => {
+                            <div><div className="text-sm font-semibold text-slate-700 mb-2">標籤名稱 (Label)</div><input className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-sans" value={c.label} onChange={(e) => {
                               const next = [...section.body]; next[idx] = { ...c, label: e.target.value }; setSection({ ...section, body: next });
                             }} /></div>
-                            <div><div className="glass-label mb-2">顯示數值 (Value)</div><input className="glass-input" value={c.value} onChange={(e) => {
+                            <div><div className="text-sm font-semibold text-slate-700 mb-2">顯示數值 (Value)</div><input className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-sans" value={c.value} onChange={(e) => {
                               const next = [...section.body]; next[idx] = { ...c, value: e.target.value }; setSection({ ...section, body: next });
                             }} /></div>
                           </div>
-                          <div><div className="glass-label mb-2">連結網址 (URL)</div><input className="glass-input" value={c.action?.uri || ""} onChange={(e) => {
+                          <div><div className="text-sm font-semibold text-slate-700 mb-2">連結網址 (URL)</div><input className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-sans" value={c.action?.uri || ""} onChange={(e) => {
                             const next = [...section.body]; next[idx] = { ...c, action: { type: "uri", uri: e.target.value } }; setSection({ ...section, body: next });
                           }} /></div>
                         </div>
@@ -723,13 +742,13 @@ export default function EditDraft() {
                       {c.kind === "list" ? (
                         <div className="mt-3 space-y-2">
                           {c.items.map((it: any, j: number) => (
-                            <input key={it.id} className="glass-input" value={it.text} onChange={(e) => {
+                            <input key={it.id} className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-sans" value={it.text} onChange={(e) => {
                               const next = [...section.body];
                               const items = [...c.items]; items[j] = { ...it, text: e.target.value };
                               next[idx] = { ...c, items }; setSection({ ...section, body: next });
                             }} />
                           ))}
-                          <button className="glass-btn glass-btn--secondary w-full" onClick={() => {
+                          <button className="w-full px-3 py-2 bg-white border border-slate-200 text-slate-600 font-medium rounded-lg hover:bg-slate-50 transition-colors shadow-sm text-xs" onClick={() => {
                             const next = [...section.body]; next[idx] = { ...c, items: [...c.items, { id: uid("i_"), text: "新項目" }] };
                             setSection({ ...section, body: next });
                           }}>+ 新增項目</button>
@@ -738,8 +757,8 @@ export default function EditDraft() {
 
                       {c.kind === "spacer" ? (
                         <div className="mt-3">
-                          <div className="glass-label mb-2">留白大小</div>
-                          <select className="glass-input" value={c.size} onChange={(e) => {
+                          <div className="text-sm font-semibold text-slate-700 mb-2">留白大小</div>
+                          <select className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-sans" value={c.size} onChange={(e) => {
                             const next = [...section.body]; next[idx] = { ...c, size: e.target.value }; setSection({ ...section, body: next });
                           }}>
                             <option value="sm">sm</option><option value="md">md</option><option value="lg">lg</option>
@@ -758,36 +777,36 @@ export default function EditDraft() {
                 subtitle="最多 3 顆；直向滿版"
                 open={open === "footer"}
                 onToggle={() => setOpen(open === "footer" ? "hero" : "footer")}
-                right={<span className="glass-badge">{(section as any).footer?.length || 0}/3</span>}
+                right={<span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-800 border border-slate-200">{(section as any).footer?.length || 0}/3</span>}
               >
                 <div className="space-y-3">
-                  <button className="glass-btn w-full" disabled={((section as any).footer?.length || 0) >= 3} onClick={() => {
+                  <button className="w-full px-4 py-3 bg-white border border-dashed border-slate-300 rounded-xl text-slate-600 hover:bg-slate-50 hover:border-slate-400 font-medium transition-all shadow-sm" disabled={((section as any).footer?.length || 0) >= 3} onClick={() => {
                     const bg = "#0A84FF";
                     const btn: FooterButton = { id: uid("btn_"), kind: "footer_button", enabled: true, label: "新按鈕", action: { type: "uri", uri: "https://example.com" }, style: "primary", bgColor: bg, textColor: autoTextColor(bg), autoTextColor: true };
                     setSection({ ...section, footer: [...((section as any).footer || []), btn].slice(0, 3) });
                   }}>+ 新增按鈕</button>
 
                   {((section as any).footer || []).map((b: any, idx: number) => (
-                    <div key={b.id} className="glass-panel p-4 space-y-3">
+                    <div key={b.id} className="bg-white border border-slate-200 rounded-xl p-4 space-y-3 shadow-sm">
                       <div className="flex items-center justify-between">
                         <div className="font-semibold text-sm">按鈕 {idx + 1}</div>
                         <div className="flex items-center gap-1">
                           <button
-                            className="glass-btn glass-btn--secondary p-1.5 text-gray-500 hover:text-gray-900 disabled:opacity-30 disabled:hover:text-gray-500"
+                            className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 disabled:opacity-30 transition-colors"
                             disabled={idx === 0}
                             onClick={() => setSection({ ...section, footer: moveItem((section as any).footer, idx, idx - 1) })}
                           >
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 15l-6-6-6 6" /></svg>
                           </button>
                           <button
-                            className="glass-btn glass-btn--secondary p-1.5 text-gray-500 hover:text-gray-900 disabled:opacity-30 disabled:hover:text-gray-500"
+                            className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 disabled:opacity-30 transition-colors"
                             disabled={idx === (section as any).footer.length - 1}
                             onClick={() => setSection({ ...section, footer: moveItem((section as any).footer, idx, idx + 1) })}
                           >
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 9l6 6 6-6" /></svg>
                           </button>
-                          <div className="w-px h-4 bg-gray-300 mx-1"></div>
-                          <button className="glass-btn glass-btn--secondary px-3 py-1.5 text-xs text-red-600 hover:bg-red-50" onClick={() => {
+                          <div className="w-px h-4 bg-slate-200 mx-1"></div>
+                          <button className="px-3 py-1.5 text-xs font-medium text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors" onClick={() => {
                             const next = (section as any).footer.filter((_: any, i: number) => i !== idx);
                             setSection({ ...section, footer: next });
                           }}>刪除</button>
@@ -798,14 +817,14 @@ export default function EditDraft() {
                         <div>
                           <div className="flex gap-4 mb-2">
                             <div className="flex-1">
-                              <div className="glass-label mb-1">按鈕文字</div>
-                              <input className="glass-input w-full" value={b.label} onChange={(e) => {
+                              <div className="text-sm font-semibold text-slate-700 mb-1">按鈕文字</div>
+                              <input className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all" value={b.label} onChange={(e) => {
                                 const next = [...(section as any).footer]; next[idx] = { ...b, label: e.target.value }; setSection({ ...section, footer: next });
                               }} />
                             </div>
                             <div className="w-1/3">
-                              <div className="glass-label mb-1">動作類型</div>
-                              <select className="glass-input w-full py-1.5" value={b.action.type} onChange={(e) => {
+                              <div className="text-sm font-semibold text-slate-700 mb-1">動作類型</div>
+                              <select className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all" value={b.action.type} onChange={(e) => {
                                 const type = e.target.value as any;
                                 const next = [...(section as any).footer];
                                 if (type === "uri") next[idx] = { ...b, action: { type, uri: "" } };
@@ -821,11 +840,11 @@ export default function EditDraft() {
                           </div>
 
                           <div>
-                            <div className="glass-label mb-2">
+                            <div className="text-sm font-semibold text-slate-700 mb-2">
                               {b.action.type === "uri" ? "URL連結" : b.action.type === "message" ? "訊息文字" : "分享連結（自動填入）"}
                             </div>
                             <input
-                              className={`glass-input w-full ${b.action.type === "share" ? "bg-gray-100 opacity-60 cursor-not-allowed" : ""}`}
+                              className={`w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all ${b.action.type === "share" ? "bg-slate-100 opacity-60 cursor-not-allowed" : ""}`}
                               disabled={b.action.type === "share"}
                               value={b.action.type === "uri" ? b.action.uri : b.action.type === "message" ? b.action.text : (shareUrl || "尚未發布，請先至預覽頁發布")}
                               onChange={(e) => {
@@ -843,8 +862,8 @@ export default function EditDraft() {
                         </div>
                       </div>
 
-                      <details className="glass-panel p-3">
-                        <summary className="cursor-pointer font-semibold text-sm">顏色設定</summary>
+                      <details className="bg-slate-50 border border-slate-200 rounded-xl p-3">
+                        <summary className="cursor-pointer font-semibold text-sm text-slate-700">顏色設定</summary>
                         <div className="mt-3 space-y-4">
                           <ColorPicker label="背景色" value={b.bgColor} onChange={(v) => {
                             const next = [...(section as any).footer];
@@ -853,7 +872,7 @@ export default function EditDraft() {
                           }} />
                           <div className="flex items-center justify-between gap-2">
                             <div className="text-xs opacity-70">文字色：{b.textColor}</div>
-                            <button className="glass-btn glass-btn--secondary px-3 py-2 text-xs" onClick={() => {
+                            <button className="px-3 py-1.5 text-xs font-medium bg-white border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 transition-colors shadow-sm" onClick={() => {
                               const next = [...(section as any).footer]; next[idx] = { ...b, textColor: autoTextColor(b.bgColor), autoTextColor: true }; setSection({ ...section, footer: next });
                             }}>自動</button>
                           </div>
@@ -876,10 +895,10 @@ export default function EditDraft() {
                 subtitle="輪播卡片每張必填；建議使用 1.91:1 比例"
                 open={open === "hero"}
                 onToggle={() => setOpen(open === "hero" ? "body" : "hero")}
-                right={<span className="glass-badge">{report.status === "publishable" ? "✅" : report.status === "previewable" ? "⚠️" : "📝"}</span>}
+                right={<span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${report.status === "publishable" ? "bg-green-100 text-green-800 border-green-200" : report.status === "previewable" ? "bg-amber-100 text-amber-800 border-amber-200" : "bg-slate-100 text-slate-800 border-slate-200"}`}>{report.status === "publishable" ? "✅" : report.status === "previewable" ? "⚠️" : "📝"}</span>}
               >
                 <div className="space-y-3">
-                  <label className="glass-btn glass-btn--secondary w-full justify-center">
+                  <label className="flex items-center justify-center w-full px-4 py-3 bg-white border border-dashed border-slate-300 rounded-xl cursor-pointer hover:bg-slate-50 hover:border-slate-400 transition-all text-sm font-medium text-slate-600 group">
                     上傳圖片（Supabase Storage）
                     <input type="file" accept="image/*" className="hidden" onChange={async (e) => {
                       const file = e.target.files?.[0];
@@ -914,9 +933,9 @@ export default function EditDraft() {
 
 
                   <div className="mt-3">
-                    <div className="glass-label mb-2">圖片比例</div>
+                    <div className="text-sm font-semibold text-slate-700 mb-2">圖片比例</div>
                     <select
-                      className="glass-input"
+                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
                       value={(() => {
                         const heroArr = (section as any).hero || [];
                         const heroImage = heroArr.find((c: any) => c.kind === "hero_image");
@@ -944,57 +963,57 @@ export default function EditDraft() {
                 title="內容設定"
                 open={open === "body"}
                 onToggle={() => setOpen(open === "body" ? "footer" : "body")}
-                right={<span className="glass-badge">{section.body.filter((c: any) => c.enabled).length} 個</span>}
+                right={<span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-800 border border-slate-200">{section.body.filter((c: any) => c.enabled).length} 個</span>}
               >
                 <div className="space-y-3">
                   <div className="grid grid-cols-3 gap-2">
-                    <button className="glass-btn text-xs py-2" onClick={() => {
+                    <button className="flex items-center justify-center px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-700 hover:bg-slate-50 hover:text-slate-900 transition-colors shadow-sm" onClick={() => {
                       const next = [...section.body, { id: uid("t_"), kind: "title", enabled: true, text: "新標題", size: "lg", weight: "bold", color: "#111111", align: "start" }];
                       setSection({ ...section, body: next });
                     }}>＋ 標題</button>
-                    <button className="glass-btn text-xs py-2" onClick={() => {
+                    <button className="flex items-center justify-center px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-700 hover:bg-slate-50 hover:text-slate-900 transition-colors shadow-sm" onClick={() => {
                       const next = [...section.body, { id: uid("p_"), kind: "paragraph", enabled: true, text: "新段落…", size: "md", color: "#333333", wrap: true }];
                       setSection({ ...section, body: next });
                     }}>＋ 段落</button>
-                    <button className="glass-btn text-xs py-2" onClick={() => {
+                    <button className="flex items-center justify-center px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-700 hover:bg-slate-50 hover:text-slate-900 transition-colors shadow-sm" onClick={() => {
                       const next = [...section.body, { id: uid("kv_"), kind: "key_value", enabled: true, label: "標籤", value: "內容", action: { type: "uri", uri: "https://example.com" } }];
                       setSection({ ...section, body: next });
                     }}>＋ 標籤數值</button>
-                    <button className="glass-btn text-xs py-2" onClick={() => {
+                    <button className="flex items-center justify-center px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-700 hover:bg-slate-50 hover:text-slate-900 transition-colors shadow-sm" onClick={() => {
                       const next = [...section.body, { id: uid("l_"), kind: "list", enabled: true, items: [{ id: uid("i_"), text: "清單項目" }] }];
                       setSection({ ...section, body: next });
                     }}>＋ 列表</button>
-                    <button className="glass-btn text-xs py-2" onClick={() => {
+                    <button className="flex items-center justify-center px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-700 hover:bg-slate-50 hover:text-slate-900 transition-colors shadow-sm" onClick={() => {
                       const next = [...section.body, { id: uid("d_"), kind: "divider", enabled: true }];
                       setSection({ ...section, body: next });
                     }}>＋ 分隔線</button>
-                    <button className="glass-btn text-xs py-2" onClick={() => {
+                    <button className="flex items-center justify-center px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-700 hover:bg-slate-50 hover:text-slate-900 transition-colors shadow-sm" onClick={() => {
                       const next = [...section.body, { id: uid("s_"), kind: "spacer", enabled: true, size: "md" }];
                       setSection({ ...section, body: next });
                     }}>＋ 留白</button>
                   </div>
 
                   {section.body.map((c: any, idx: number) => (
-                    <div key={c.id} className="glass-panel p-4">
+                    <div key={c.id} className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm relative group/item">
                       <div className="flex items-center justify-between">
                         <div className="font-semibold text-sm">{idx + 1}. {c.kind}</div>
                         <div className="flex items-center gap-1">
                           <button
-                            className="glass-btn glass-btn--secondary p-1.5 text-gray-500 hover:text-gray-900 disabled:opacity-30 disabled:hover:text-gray-500"
+                            className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 disabled:opacity-30 transition-colors"
                             disabled={idx === 0}
                             onClick={() => setSection({ ...section, body: moveItem(section.body, idx, idx - 1) })}
                           >
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 15l-6-6-6 6" /></svg>
                           </button>
                           <button
-                            className="glass-btn glass-btn--secondary p-1.5 text-gray-500 hover:text-gray-900 disabled:opacity-30 disabled:hover:text-gray-500"
+                            className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 disabled:opacity-30 transition-colors"
                             disabled={idx === section.body.length - 1}
                             onClick={() => setSection({ ...section, body: moveItem(section.body, idx, idx + 1) })}
                           >
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 9l6 6 6-6" /></svg>
                           </button>
-                          <div className="w-px h-4 bg-gray-300 mx-1"></div>
-                          <button className="glass-btn glass-btn--secondary px-3 py-1.5 text-xs text-red-600 hover:bg-red-50" onClick={() => {
+                          <div className="w-px h-4 bg-slate-200 mx-1"></div>
+                          <button className="px-3 py-1.5 text-xs font-medium text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors" onClick={() => {
                             const next = [...section.body]; next.splice(idx, 1);
                             setSection({ ...section, body: next });
                           }}>刪除</button>
@@ -1004,8 +1023,8 @@ export default function EditDraft() {
                       {(c.kind === "title" || c.kind === "paragraph") ? (
                         <div className="mt-3 space-y-3">
                           <div>
-                            <div className="glass-label mb-2">文字內容</div>
-                            <textarea className="glass-input" rows={c.kind === "title" ? 2 : 3} value={c.text} onChange={(e) => {
+                            <div className="text-sm font-semibold text-slate-700 mb-2">文字內容</div>
+                            <textarea className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-sans" rows={c.kind === "title" ? 2 : 3} value={c.text} onChange={(e) => {
                               const next = [...section.body]; next[idx] = { ...c, text: e.target.value };
                               setSection({ ...section, body: next });
                             }} />
@@ -1029,8 +1048,8 @@ export default function EditDraft() {
                                 />
                               </div>
                               <div className="w-24">
-                                <div className="glass-label mb-1">大小</div>
-                                <select className="glass-input w-full py-1.5" value={c.size} onChange={(e) => {
+                                <div className="text-sm font-semibold text-slate-700 mb-1">大小</div>
+                                <select className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all" value={c.size} onChange={(e) => {
                                   const next = [...section.body]; next[idx] = { ...c, size: e.target.value };
                                   setSection({ ...section, body: next });
                                 }}>
@@ -1040,8 +1059,8 @@ export default function EditDraft() {
                                 </select>
                               </div>
                               <div className="w-24">
-                                <div className="glass-label mb-1">粗細</div>
-                                <select className="glass-input w-full py-1.5" value={c.weight || "regular"} onChange={(e) => {
+                                <div className="text-sm font-semibold text-slate-700 mb-1">粗細</div>
+                                <select className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all" value={c.weight || "regular"} onChange={(e) => {
                                   const next = [...section.body]; next[idx] = { ...c, weight: e.target.value as any };
                                   setSection({ ...section, body: next });
                                 }}>
@@ -1057,14 +1076,14 @@ export default function EditDraft() {
                       {c.kind === "key_value" ? (
                         <div className="mt-3 space-y-3">
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                            <div><div className="glass-label mb-2">標籤名稱 (Label)</div><input className="glass-input" value={c.label} onChange={(e) => {
+                            <div><div className="text-sm font-semibold text-slate-700 mb-2">標籤名稱 (Label)</div><input className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all" value={c.label} onChange={(e) => {
                               const next = [...section.body]; next[idx] = { ...c, label: e.target.value }; setSection({ ...section, body: next });
                             }} /></div>
-                            <div><div className="glass-label mb-2">顯示數值 (Value)</div><input className="glass-input" value={c.value} onChange={(e) => {
+                            <div><div className="text-sm font-semibold text-slate-700 mb-2">顯示數值 (Value)</div><input className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all" value={c.value} onChange={(e) => {
                               const next = [...section.body]; next[idx] = { ...c, value: e.target.value }; setSection({ ...section, body: next });
                             }} /></div>
                           </div>
-                          <div><div className="glass-label mb-2">連結網址 (URL)</div><input className="glass-input" value={c.action?.uri || ""} onChange={(e) => {
+                          <div><div className="text-sm font-semibold text-slate-700 mb-2">連結網址 (URL)</div><input className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all" value={c.action?.uri || ""} onChange={(e) => {
                             const next = [...section.body]; next[idx] = { ...c, action: { type: "uri", uri: e.target.value } }; setSection({ ...section, body: next });
                           }} /></div>
                         </div>
@@ -1073,13 +1092,13 @@ export default function EditDraft() {
                       {c.kind === "list" ? (
                         <div className="mt-3 space-y-2">
                           {c.items.map((it: any, j: number) => (
-                            <input key={it.id} className="glass-input" value={it.text} onChange={(e) => {
+                            <input key={it.id} className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all" value={it.text} onChange={(e) => {
                               const next = [...section.body];
                               const items = [...c.items]; items[j] = { ...it, text: e.target.value };
                               next[idx] = { ...c, items }; setSection({ ...section, body: next });
                             }} />
                           ))}
-                          <button className="glass-btn glass-btn--secondary w-full" onClick={() => {
+                          <button className="w-full px-3 py-2 bg-white border border-slate-200 text-slate-600 font-medium rounded-lg hover:bg-slate-50 transition-colors shadow-sm text-xs" onClick={() => {
                             const next = [...section.body]; next[idx] = { ...c, items: [...c.items, { id: uid("i_"), text: "新項目" }] };
                             setSection({ ...section, body: next });
                           }}>+ 新增項目</button>
@@ -1088,8 +1107,8 @@ export default function EditDraft() {
 
                       {c.kind === "spacer" ? (
                         <div className="mt-3">
-                          <div className="glass-label mb-2">留白大小</div>
-                          <select className="glass-input" value={c.size} onChange={(e) => {
+                          <div className="text-sm font-semibold text-slate-700 mb-2">留白大小</div>
+                          <select className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all" value={c.size} onChange={(e) => {
                             const next = [...section.body]; next[idx] = { ...c, size: e.target.value }; setSection({ ...section, body: next });
                           }}>
                             <option value="sm">sm</option><option value="md">md</option><option value="lg">lg</option>
@@ -1108,36 +1127,36 @@ export default function EditDraft() {
                 subtitle="最多 3 顆；直向滿版"
                 open={open === "footer"}
                 onToggle={() => setOpen(open === "footer" ? "hero" : "footer")}
-                right={<span className="glass-badge">{(section as any).footer?.length || 0}/3</span>}
+                right={<span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-800 border border-slate-200">{(section as any).footer?.length || 0}/3</span>}
               >
                 <div className="space-y-3">
-                  <button className="glass-btn w-full" disabled={((section as any).footer?.length || 0) >= 3} onClick={() => {
+                  <button className="w-full px-4 py-3 bg-white border border-dashed border-slate-300 rounded-xl text-slate-600 hover:bg-slate-50 hover:border-slate-400 font-medium transition-all shadow-sm" disabled={((section as any).footer?.length || 0) >= 3} onClick={() => {
                     const bg = "#0A84FF";
                     const btn: FooterButton = { id: uid("btn_"), kind: "footer_button", enabled: true, label: "新按鈕", action: { type: "uri", uri: "https://example.com" }, style: "primary", bgColor: bg, textColor: autoTextColor(bg), autoTextColor: true };
                     setSection({ ...section, footer: [...((section as any).footer || []), btn].slice(0, 3) });
                   }}>+ 新增按鈕</button>
 
                   {((section as any).footer || []).map((b: any, idx: number) => (
-                    <div key={b.id} className="glass-panel p-4 space-y-3">
+                    <div key={b.id} className="bg-white border border-slate-200 rounded-xl p-4 space-y-3 shadow-sm">
                       <div className="flex items-center justify-between">
                         <div className="font-semibold text-sm">按鈕 {idx + 1}</div>
                         <div className="flex items-center gap-1">
                           <button
-                            className="glass-btn glass-btn--secondary p-1.5 text-gray-500 hover:text-gray-900 disabled:opacity-30 disabled:hover:text-gray-500"
+                            className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 disabled:opacity-30 transition-colors"
                             disabled={idx === 0}
                             onClick={() => setSection({ ...section, footer: moveItem((section as any).footer, idx, idx - 1) })}
                           >
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 15l-6-6-6 6" /></svg>
                           </button>
                           <button
-                            className="glass-btn glass-btn--secondary p-1.5 text-gray-500 hover:text-gray-900 disabled:opacity-30 disabled:hover:text-gray-500"
+                            className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 disabled:opacity-30 transition-colors"
                             disabled={idx === (section as any).footer.length - 1}
                             onClick={() => setSection({ ...section, footer: moveItem((section as any).footer, idx, idx + 1) })}
                           >
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 9l6 6 6-6" /></svg>
                           </button>
-                          <div className="w-px h-4 bg-gray-300 mx-1"></div>
-                          <button className="glass-btn glass-btn--secondary px-3 py-1.5 text-xs text-red-600 hover:bg-red-50" onClick={() => {
+                          <div className="w-px h-4 bg-slate-200 mx-1"></div>
+                          <button className="px-3 py-1.5 text-xs font-medium text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors" onClick={() => {
                             const next = (section as any).footer.filter((_: any, i: number) => i !== idx);
                             setSection({ ...section, footer: next });
                           }}>刪除</button>
@@ -1148,14 +1167,14 @@ export default function EditDraft() {
                         <div>
                           <div className="flex gap-4 mb-2">
                             <div className="flex-1">
-                              <div className="glass-label mb-1">按鈕文字</div>
-                              <input className="glass-input w-full" value={b.label} onChange={(e) => {
+                              <div className="text-sm font-semibold text-slate-700 mb-1">按鈕文字</div>
+                              <input className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all" value={b.label} onChange={(e) => {
                                 const next = [...(section as any).footer]; next[idx] = { ...b, label: e.target.value }; setSection({ ...section, footer: next });
                               }} />
                             </div>
                             <div className="w-1/3">
-                              <div className="glass-label mb-1">動作類型</div>
-                              <select className="glass-input w-full py-1.5" value={b.action.type} onChange={(e) => {
+                              <div className="text-sm font-semibold text-slate-700 mb-1">動作類型</div>
+                              <select className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all" value={b.action.type} onChange={(e) => {
                                 const type = e.target.value as any;
                                 const next = [...(section as any).footer];
                                 if (type === "uri") next[idx] = { ...b, action: { type, uri: "" } };
@@ -1171,11 +1190,11 @@ export default function EditDraft() {
                           </div>
 
                           <div>
-                            <div className="glass-label mb-2">
+                            <div className="text-sm font-semibold text-slate-700 mb-2">
                               {b.action.type === "uri" ? "URL連結" : b.action.type === "message" ? "訊息文字" : "分享連結（自動填入）"}
                             </div>
                             <input
-                              className={`glass-input w-full ${b.action.type === "share" ? "bg-gray-100 opacity-60 cursor-not-allowed" : ""}`}
+                              className={`w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all ${b.action.type === "share" ? "bg-slate-100 opacity-60 cursor-not-allowed" : ""}`}
                               disabled={b.action.type === "share"}
                               value={b.action.type === "uri" ? b.action.uri : b.action.type === "message" ? b.action.text : (shareUrl || "尚未發布，請先至預覽頁發布")}
                               onChange={(e) => {
@@ -1193,8 +1212,8 @@ export default function EditDraft() {
                         </div>
                       </div>
 
-                      <details className="glass-panel p-3">
-                        <summary className="cursor-pointer font-semibold text-sm">顏色設定</summary>
+                      <details className="bg-slate-50 border border-slate-200 rounded-xl p-3">
+                        <summary className="cursor-pointer font-semibold text-sm text-slate-700">顏色設定</summary>
                         <div className="mt-3 space-y-4">
                           <ColorPicker label="背景色" value={b.bgColor} onChange={(v) => {
                             const next = [...(section as any).footer];
@@ -1203,7 +1222,7 @@ export default function EditDraft() {
                           }} />
                           <div className="flex items-center justify-between gap-2">
                             <div className="text-xs opacity-70">文字色：{b.textColor}</div>
-                            <button className="glass-btn glass-btn--secondary px-3 py-2 text-xs" onClick={() => {
+                            <button className="px-3 py-2 text-xs font-medium bg-white border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 transition-colors shadow-sm" onClick={() => {
                               const next = [...(section as any).footer]; next[idx] = { ...b, textColor: autoTextColor(b.bgColor), autoTextColor: true }; setSection({ ...section, footer: next });
                             }}>自動</button>
                           </div>
@@ -1221,15 +1240,15 @@ export default function EditDraft() {
           )}
 
           <div className="sticky bottom-4">
-            <div className="glass-panel p-3 flex gap-2">
-              <button className="glass-btn flex-1" onClick={async () => { await flushSave(); nav(`/drafts/${id}/preview`); }}>下一步</button>
+            <div className="bg-white border border-slate-200 rounded-xl p-3 flex gap-2 shadow-lg shadow-slate-200/50">
+              <button className="flex-1 bg-blue-600 text-white font-medium hover:bg-blue-700 active:bg-blue-800 py-2.5 rounded-lg transition-all shadow-md shadow-blue-200/50" onClick={async () => { await flushSave(); nav(`/drafts/${id}/preview`); }}>下一步</button>
             </div>
             <div className="mt-2 text-xs opacity-70">{report.errors.length ? `❌ 有 ${report.errors.length} 個錯誤` : report.warnings.length ? `⚠️ 有 ${report.warnings.length} 個警告` : "✅ 可發布"}</div>
           </div>
         </div>
 
         <div className="space-y-4 sticky top-24 self-start">
-          <div className="glass-panel p-4">
+          <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
             <div className="flex items-center justify-between">
               <div className="font-semibold">即時預覽</div>
               <div className="flex items-center gap-2">
@@ -1237,13 +1256,15 @@ export default function EditDraft() {
                   <button className={`px-3 py-1 rounded-md transition ${viewMode === "preview" ? "bg-white shadow text-black font-medium" : "text-gray-500 hover:text-gray-700"}`} onClick={() => setViewMode("preview")}>預覽</button>
                   <button className={`px-3 py-1 rounded-md transition ${viewMode === "json" ? "bg-white shadow text-black font-medium" : "text-gray-500 hover:text-gray-700"}`} onClick={() => setViewMode("json")}>JSON</button>
                 </div>
-                <span className="glass-badge">{report.errors.length ? `❌ ${report.errors.length}` : report.warnings.length ? `⚠️ ${report.warnings.length}` : "✅ OK"}</span>
+                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${report.errors.length ? "bg-red-100 text-red-800 border-red-200" : report.warnings.length ? "bg-amber-100 text-amber-800 border-amber-200" : "bg-green-100 text-green-800 border-green-200"}`}>
+                  {report.errors.length ? `❌ ${report.errors.length}` : report.warnings.length ? `⚠️ ${report.warnings.length}` : "✅ OK"}
+                </span>
               </div>
             </div>
             <div className="mt-4">
               {viewMode === "json" ? (
                 <textarea
-                  className="w-full h-[500px] glass-input font-mono text-xs leading-5 p-3 resize-y"
+                  className="w-full h-[500px] bg-slate-50 border border-slate-200 rounded-lg font-mono text-xs leading-5 p-3 resize-y focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
                   value={jsonCode ?? JSON.stringify(buildFlex(doc), null, 2)}
                   onChange={(e) => setJsonCode(e.target.value)}
                   spellCheck={false}
@@ -1263,7 +1284,7 @@ export default function EditDraft() {
             </div>
           </div>
 
-          <div className="glass-panel p-4">
+          <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
             <div className="font-semibold">驗證清單</div>
             <div className="mt-2 space-y-2 text-sm">
               {report.errors.map((e: any, i: number) => <div key={i} className="text-red-600">❌ {e.message}</div>)}

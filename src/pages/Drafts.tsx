@@ -97,7 +97,7 @@ export default function Drafts() {
   });
 
   return (
-    <div className="glass-bg h-screen flex flex-col overflow-hidden font-sans">
+    <div className="bg-slate-50 h-screen flex flex-col overflow-hidden font-sans">
       {/* Header */}
       <div className="h-16 bg-white border-b border-gray-200 px-4 md:px-6 flex items-center justify-between shrink-0 z-20 gap-4">
         <div className="flex items-center gap-3 shrink-0">
@@ -175,8 +175,8 @@ export default function Drafts() {
             {/* Root Tab */}
             <button
               className={`w-full px-3 py-2 rounded-lg text-sm font-medium transition-colors text-left flex items-center gap-3 ${currentFolderId === undefined && !searchQuery
-                  ? "bg-white text-gray-900 shadow-sm ring-1 ring-gray-200"
-                  : "text-gray-600 hover:bg-gray-200/50 hover:text-gray-900"
+                ? "bg-white text-gray-900 shadow-sm ring-1 ring-gray-200"
+                : "text-gray-600 hover:bg-gray-200/50 hover:text-gray-900"
                 }`}
               onClick={() => {
                 setSearchQuery(""); // Clear search when navigating
@@ -195,8 +195,8 @@ export default function Drafts() {
               <div
                 key={folder.id}
                 className={`group relative w-full px-3 py-2 rounded-lg text-sm font-medium transition-colors text-left flex items-center gap-3 cursor-pointer ${currentFolderId === folder.id && !searchQuery
-                    ? "bg-white text-gray-900 shadow-sm ring-1 ring-gray-200"
-                    : "text-gray-600 hover:bg-gray-200/50 hover:text-gray-900"
+                  ? "bg-white text-gray-900 shadow-sm ring-1 ring-gray-200"
+                  : "text-gray-600 hover:bg-gray-200/50 hover:text-gray-900"
                   }`}
                 onClick={() => {
                   setSearchQuery(""); // Clear search when navigating

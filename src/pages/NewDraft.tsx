@@ -62,20 +62,20 @@ export default function NewDraft() {
   }
 
   return (
-    <div className="glass-bg">
+    <div className="min-h-screen bg-slate-50">
       <div className="mx-auto max-w-5xl px-4 py-6">
-        <div className="glass-panel p-4 flex items-center justify-between">
+        <div className="bg-white border border-slate-200 rounded-xl shadow-sm p-4 flex items-center justify-between">
           <div>
             <div className="text-xl font-semibold">新增草稿</div>
             <div className="text-sm opacity-70">選一個範本開始，之後再到編輯頁調整內容與排版。</div>
           </div>
-          <button className="glass-btn glass-btn--secondary" onClick={() => nav("/drafts")}>
+          <button className="px-3 py-1.5 text-sm bg-white border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 transition-colors shadow-sm" onClick={() => nav("/drafts")}>
             返回列表
           </button>
         </div>
 
         {err ? (
-          <div className="mt-4 glass-panel p-4 text-red-600 text-sm whitespace-pre-wrap">
+          <div className="mt-4 bg-white border border-slate-200 rounded-xl shadow-sm p-4 text-red-600 text-sm whitespace-pre-wrap">
             {err}
           </div>
         ) : null}
@@ -86,7 +86,7 @@ export default function NewDraft() {
             {builtinQuick.map((b) => (
               <button
                 key={b.key}
-                className="glass-panel p-5 text-left hover:brightness-110 transition disabled:opacity-60"
+                className="bg-white border border-slate-200 rounded-xl shadow-sm p-5 text-left hover:brightness-110 transition disabled:opacity-60"
                 disabled={loading}
                 onClick={() => createFromDoc(b.doc)}
               >
@@ -101,11 +101,11 @@ export default function NewDraft() {
         <div className="mt-8">
           <div className="text-sm opacity-70 mb-3">範本庫</div>
           {tpls.length === 0 ? (
-            <div className="glass-panel p-5 opacity-80">目前沒有範本。你可以先建立草稿後，在編輯頁「另存為範本」。</div>
+            <div className="bg-white border border-slate-200 rounded-xl shadow-sm p-5 opacity-80">目前沒有範本。你可以先建立草稿後，在編輯頁「另存為範本」。</div>
           ) : (
             <div className="grid md:grid-cols-2 gap-4">
               {tpls.map((t) => (
-                <div key={t.id} className="glass-panel p-5">
+                <div key={t.id} className="bg-white border border-slate-200 rounded-xl shadow-sm p-5">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
                       <div className="font-semibold truncate">{t.name}</div>
@@ -116,7 +116,7 @@ export default function NewDraft() {
 
                     {t.owner_id ? (
                       <button
-                        className="glass-btn glass-btn--secondary shrink-0"
+                        className="px-3 py-1.5 text-sm bg-white border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 transition-colors shadow-sm shrink-0"
                         disabled={loading}
                         onClick={() => onDeleteTemplate(t)}
                         title="刪除範本"
@@ -124,12 +124,12 @@ export default function NewDraft() {
                         刪除
                       </button>
                     ) : (
-                      <span className="glass-badge shrink-0">內建</span>
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-800 border border-slate-200 shrink-0">內建</span>
                     )}
                   </div>
 
                   <div className="mt-4 flex gap-3">
-                    <button className="glass-btn flex-1" disabled={loading} onClick={() => createFromDoc(t.doc_model)}>
+                    <button className="w-full px-4 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors shadow-sm" disabled={loading} onClick={() => createFromDoc(t.doc_model)}>
                       {loading ? "處理中…" : "使用此範本"}
                     </button>
                   </div>

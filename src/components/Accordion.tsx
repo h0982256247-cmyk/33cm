@@ -1,9 +1,9 @@
 import React from "react";
-export function AccordionSection({ title, subtitle, open, onToggle, children, right }:{
+export function AccordionSection({ title, subtitle, open, onToggle, children, right }: {
   title: string; subtitle?: string; open: boolean; onToggle: () => void; children: React.ReactNode; right?: React.ReactNode;
 }) {
   return (
-    <div className="glass-panel p-4">
+    <div className="bg-white border border-slate-200 rounded-xl shadow-sm p-4">
       <button type="button" onClick={onToggle} className="w-full flex items-center justify-between">
         <div className="text-left">
           <div className="text-base font-semibold">{title}</div>

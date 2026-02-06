@@ -22,7 +22,7 @@ export default function ProgressBar({ docId }: { docId?: string }) {
     const isCurrent = current === key;
     const done = (current === "edit" && key === "drafts") || (current === "preview" && (key === "drafts" || key === "edit"));
     return (
-      <button key={key} className={`glass-btn ${isCurrent ? "" : "glass-btn--secondary"} text-sm px-4 py-2`} onClick={() => go(key)} type="button">
+      <button key={key} className={`inline-flex items-center justify-center gap-2 rounded-lg transition-colors px-4 py-2 text-sm shadow-sm border ${isCurrent ? "bg-blue-600 text-white border-transparent" : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"}`} onClick={() => go(key)} type="button">
         <span>{done ? "✓" : ""}</span><span>{label}</span>
       </button>
     );
@@ -31,10 +31,10 @@ export default function ProgressBar({ docId }: { docId?: string }) {
   return (
     <div className="sticky top-0 z-20">
       <div className="mx-auto max-w-5xl px-4 pt-4">
-        <div className="glass-panel p-3 flex gap-2 justify-center">
-          {pill("drafts","草稿")}
-          {pill("edit","編輯")}
-          {pill("preview","預覽")}
+        <div className="bg-white border border-slate-200 rounded-xl shadow-sm p-3 flex gap-2 justify-center">
+          {pill("drafts", "草稿")}
+          {pill("edit", "編輯")}
+          {pill("preview", "預覽")}
         </div>
       </div>
     </div>

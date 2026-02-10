@@ -136,7 +136,7 @@ export const DraftListStep: React.FC<DraftListStepProps> = ({
                 <button
                   key={status}
                   onClick={() => setStatusFilter(status as any)}
-                  className={`px-3 py-1 rounded-full text-xs font-bold transition-all ${statusFilter === status ? 'bg-primary text-white shadow-md' : 'bg-gray-100 text-secondary hover:bg-gray-200'}`}
+                  className={`px-3 py-1 rounded-full text-xs font-bold transition-all ${statusFilter === status ? 'bg-primary text-white shadow-md' : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50 hover:border-primary'}`}
                 >
                   {status === 'all' ? '全部' : status === 'draft' ? '草稿' : status === 'scheduled' ? '已預約' : '已發布'}
                 </button>

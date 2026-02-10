@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { listDocs, deleteDoc, createDoc, saveDoc } from "@/lib/db";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/lib/supabase";
+import { PageHeader } from "@/components/PageHeader";
 
 export default function Drafts() {
   const nav = useNavigate();
@@ -99,21 +100,13 @@ export default function Drafts() {
   return (
     <div className="bg-slate-50 h-screen flex flex-col overflow-hidden font-sans">
       {/* Header */}
-      <div className="h-16 bg-white border-b border-gray-200 px-4 md:px-6 flex items-center justify-between shrink-0 z-20 gap-4">
-        <div className="flex items-center gap-3 shrink-0">
-          {/* Toggle Sidebar Button */}
-          <button
-            className="p-2 -ml-2 text-gray-500 hover:bg-gray-100 rounded-lg transition-colors md:hidden"
-            onClick={() => setSidebarOpen(!isSidebarOpen)}
-            title={isSidebarOpen ? "收起列表" : "展開列表"}
-          >
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
-          </button>
-          <h1 className="text-lg font-semibold text-gray-900 tracking-tight hidden sm:block">我的卡片</h1>
-        </div>
-
-        {/* Search Bar */}
-        <div className="flex-1 max-w-md mx-auto relative group">
+      <PageHeader
+        title="Flex Message 編輯器"
+        subtitle="我的卡片"
+        backPath="/home"
+      >
+        {/* 中間搜尋欄 */}
+        <div className="flex-1 max-w-md relative group">
           <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-blue-500 transition-colors">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
           </div>
@@ -125,10 +118,23 @@ export default function Drafts() {
             onChange={(e) => setSearchQuery(e.target.value)}
           />
         </div>
+      </PageHeader>
 
-        <div className="flex items-center gap-2 md:gap-3 shrink-0">
+      {/* 工具列 */}
+      <div className="bg-white border-b border-gray-200 px-4 md:px-6 py-3 flex items-center justify-between shrink-0 z-10">
+        <div className="flex items-center gap-2">
           <button
-            className="px-3 md:px-4 py-2 text-sm font-medium text-gray-600 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors border border-gray-200/50 whitespace-nowrap"
+            className="p-2 -ml-2 text-gray-500 hover:bg-gray-100 rounded-lg transition-colors md:hidden"
+            onClick={() => setSidebarOpen(!isSidebarOpen)}
+            title={isSidebarOpen ? "收起列表" : "展開列表"}
+          >
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+          </button>
+        </div>
+
+        <div className="flex items-center gap-2 md:gap-3">
+          <button
+            className="px-3 md:px-4 py-2 text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 rounded-lg transition-colors border border-gray-300 whitespace-nowrap"
             onClick={handleCreateFolder}
           >
             ＋<span className="hidden md:inline"> 資料夾</span>
@@ -137,6 +143,7 @@ export default function Drafts() {
             className="px-3 md:px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 shadow-sm shadow-blue-200/50 rounded-lg transition-all whitespace-nowrap"
             onClick={() => nav("/drafts/new")}
           >
+            <svg className="w-4 h-4 inline mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
             新增<span className="hidden md:inline">草稿</span>
           </button>
           <div className="w-px h-6 bg-gray-200 mx-1 hidden sm:block"></div>

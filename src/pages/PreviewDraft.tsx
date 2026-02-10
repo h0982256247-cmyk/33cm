@@ -7,7 +7,7 @@ import { getDoc, getActiveShareForDoc, publishDoc } from "@/lib/db";
 import { DocModel } from "@/lib/types";
 import { isPublishable, validateDoc } from "@/lib/validate";
 import { PageHeader } from "@/components/PageHeader";
-import { buildFlexMessage } from "@/lib/buildFlex";
+import { buildFlex } from "@/lib/buildFlex";
 import { broadcastFlexMessage } from "@/lib/broadcast";
 
 export default function PreviewDraft() {
@@ -37,10 +37,10 @@ export default function PreviewDraft() {
 
     try {
       // Build flex message
-      const flexMessage = await buildFlexMessage(doc);
+      const flexMessage = buildFlex(doc, id);
 
       // Broadcast via Edge Function
-      const result = await broadcastFlexMessage([flexMessage], doc.altText || "您收到新訊息");
+      const result = await broadcastFlexMessage([flexMessage.contents], doc.altText || flexMessage.altText || "您收到新訊息");
 
       if (result.success) {
         setBroadcastMsg("✅ 廣播成功！訊息已發送給所有好友");

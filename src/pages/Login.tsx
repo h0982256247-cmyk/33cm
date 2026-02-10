@@ -5,19 +5,6 @@ import { hasChannel, upsertChannel, validateAccessToken } from "@/lib/channel";
 
 type Step = "auth" | "token" | "done";
 
-/**
- * 統一登入頁面
- * 1. 先進行 Supabase Auth 登入
- * 2. 登入後檢查是否有 LINE Token，若無則引導綁定
- * 3. 綁定完成後導向系統選擇頁
- */
-import React, { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
-import { supabase } from "@/lib/supabase";
-import { hasChannel, upsertChannel, validateAccessToken } from "@/lib/channel";
-
-type Step = "auth" | "token" | "done";
-
 export default function Login() {
   const nav = useNavigate();
   const [step, setStep] = useState<Step>("auth");
@@ -95,19 +82,32 @@ export default function Login() {
 
       if (!session) {
         setStep("auth");
-        // 如果是登出導致的狀態變更，不需要 loading
+        setLoading(false);
         return;
       }
 
-      // 登入後檢查 Token
-      const hasToken = await hasChannel();
-      if (!mounted) return;
+      // 登入後檢查 Token（加上 timeout 避免卡住）
+      try {
+        const hasToken = await Promise.race([
+          hasChannel(),
+          new Promise<boolean>((_, reject) =>
+            setTimeout(() => reject(new Error("Token check timeout")), 3000)
+          ),
+        ]);
+        if (!mounted) return;
 
-      if (hasToken) {
-        nav("/home");
-      } else {
+        if (hasToken) {
+          nav("/home");
+        } else {
+          setStep("token");
+        }
+      } catch (err) {
+        console.warn("onAuthStateChange token check failed:", err);
+        if (!mounted) return;
+        // 超時或錯誤時，導向首頁讓使用者可以操作，不卡在 loading
         setStep("token");
-        setLoading(false);
+      } finally {
+        if (mounted) setLoading(false);
       }
     });
 

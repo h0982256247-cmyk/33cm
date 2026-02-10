@@ -29,24 +29,15 @@ interface RichMenuPayload {
 }
 
 interface MenuData {
-    id: string;
-    name: string;
-    barText: string;
+    menuData: RichMenuPayload;  // Already converted to LINE API format by frontend
+    imageBase64: string | null;
+    aliasId: string;
     isMain: boolean;
-    imageData: string; // Base64 or URL
-    aliasId?: string;
-    hotspots: {
-        x: number;
-        y: number;
-        width: number;
-        height: number;
-        action: { type: string; data: string };
-    }[];
 }
 
 interface PublishRequest {
     menus: MenuData[];
-    setAsDefault: boolean;
+    cleanOldMenus?: boolean;
 }
 
 serve(async (req) => {
@@ -83,47 +74,35 @@ serve(async (req) => {
         }
 
         const accessToken = tokenData as string;
-        const { menus, setAsDefault }: PublishRequest = await req.json();
-        const results: { menuId: string; richMenuId: string; aliasId: string }[] = [];
+        const { menus }: PublishRequest = await req.json();
+        const results: { aliasId: string; richMenuId: string }[] = [];
 
         for (const menu of menus) {
-            // 1. Create Rich Menu
-            const areas: RichMenuArea[] = menu.hotspots.map((h) => ({
-                bounds: { x: h.x, y: h.y, width: h.width, height: h.height },
-                action: buildAction(h.action),
-            }));
-
-            const richMenuPayload: RichMenuPayload = {
-                size: { width: 2500, height: 1686 },
-                selected: menu.isMain,
-                name: menu.name,
-                chatBarText: menu.barText || "選單",
-                areas: areas.length > 0 ? areas : [{
-                    bounds: { x: 0, y: 0, width: 2500, height: 1686 },
-                    action: { type: "message", text: "選單" }
-                }],
-            };
-
+            // 1. Create Rich Menu using pre-converted menuData from frontend
             const createRes = await fetch("https://api.line.me/v2/bot/richmenu", {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
                     Authorization: `Bearer ${accessToken}`,
                 },
-                body: JSON.stringify(richMenuPayload),
+                body: JSON.stringify(menu.menuData),
             });
 
             if (!createRes.ok) {
                 const errorText = await createRes.text();
-                throw new Error(`Create Rich Menu failed: ${errorText}`);
+                throw new Error(`Create Rich Menu failed for ${menu.menuData.name}: ${errorText}`);
             }
 
             const { richMenuId } = await createRes.json();
 
             // 2. Upload Image
+            if (!menu.imageBase64) {
+                throw new Error(`No image data for menu: ${menu.menuData.name}`);
+            }
+
             let imageBlob: Blob;
-            if (menu.imageData.startsWith("data:image")) {
-                const base64Data = menu.imageData.split(",")[1];
+            if (menu.imageBase64.startsWith("data:image")) {
+                const base64Data = menu.imageBase64.split(",")[1];
                 const binaryString = atob(base64Data);
                 const bytes = new Uint8Array(binaryString.length);
                 for (let i = 0; i < binaryString.length; i++) {
@@ -132,7 +111,7 @@ serve(async (req) => {
                 imageBlob = new Blob([bytes], { type: "image/png" });
             } else {
                 // Download from URL
-                const imgRes = await fetch(menu.imageData);
+                const imgRes = await fetch(menu.imageBase64);
                 imageBlob = await imgRes.blob();
             }
 
@@ -150,11 +129,11 @@ serve(async (req) => {
 
             if (!uploadRes.ok) {
                 const errorText = await uploadRes.text();
-                throw new Error(`Upload image failed: ${errorText}`);
+                throw new Error(`Upload image failed for ${menu.menuData.name}: ${errorText}`);
             }
 
             // 3. Create/Update Alias
-            const aliasId = menu.aliasId || `menu_${menu.id}`;
+            const aliasId = menu.aliasId;
 
             // Try delete existing alias first
             await fetch(`https://api.line.me/v2/bot/richmenu/alias/${aliasId}`, {
@@ -176,14 +155,14 @@ serve(async (req) => {
             }
 
             // 4. Set as default if main menu
-            if (menu.isMain && setAsDefault) {
+            if (menu.isMain) {
                 await fetch(`https://api.line.me/v2/bot/user/all/richmenu/${richMenuId}`, {
                     method: "POST",
                     headers: { Authorization: `Bearer ${accessToken}` },
                 });
             }
 
-            results.push({ menuId: menu.id, richMenuId, aliasId });
+            results.push({ aliasId, richMenuId });
         }
 
         return new Response(JSON.stringify({ success: true, results }), {
@@ -193,25 +172,10 @@ serve(async (req) => {
 
     } catch (error) {
         console.error("Publish Rich Menu error:", error);
-        return new Response(JSON.stringify({ error: error.message }), {
+        const errorMessage = error instanceof Error ? error.message : "Unknown error";
+        return new Response(JSON.stringify({ error: errorMessage }), {
             status: 500,
             headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
     }
 });
-
-function buildAction(action: { type: string; data: string }) {
-    switch (action.type) {
-        case "message":
-            return { type: "message", text: action.data };
-        case "uri":
-            return { type: "uri", uri: action.data };
-        case "postback":
-            return { type: "postback", data: action.data };
-        case "switch":
-        case "richmenuswitch":
-            return { type: "richmenuswitch", richMenuAliasId: action.data, data: action.data };
-        default:
-            return { type: "message", text: action.data || "menu" };
-    }
-}

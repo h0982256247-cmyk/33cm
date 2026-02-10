@@ -6,19 +6,21 @@ function sizeMap(s: SizeToken): string {
 }
 
 function buildShareUrl(token?: string, docId?: string, liffId?: string) {
+  const appUrl = import.meta.env.VITE_APP_URL || "https://33cm.zeabur.app";
+
   // 有 token 且有 liffId 時使用 LIFF URL 格式（自動觸發分享）
   if (token && liffId) {
     return `https://liff.line.me/${liffId}?token=${token}&autoshare=1`;
   }
   // 有 token 時使用正式分享連結格式
   if (token) {
-    return `https://linemgm.com/share?token=${token}`;
+    return `${appUrl}/share?token=${token}`;
   }
   // 預覽模式：使用 docId
   if (docId) {
-    return `https://linemgm.com/share?id=${docId}`;
+    return `${appUrl}/share?id=${docId}`;
   }
-  return "https://linemgm.com/share";
+  return `${appUrl}/share`;
 }
 
 function actionToFlex(a: Action, label?: string, docId?: string, token?: string, liffId?: string) {

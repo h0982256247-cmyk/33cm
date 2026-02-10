@@ -46,23 +46,58 @@ serve(async (req) => {
     }
 
     try {
+        // Log incoming request
+        console.log("[publish-richmenu] Request received");
+
+        // Check Authorization header
+        const authHeader = req.headers.get("Authorization");
+        if (!authHeader) {
+            console.error("[publish-richmenu] Missing Authorization header");
+            return new Response(JSON.stringify({
+                error: "Missing Authorization header - 請確認已登入"
+            }), {
+                status: 401,
+                headers: { ...corsHeaders, "Content-Type": "application/json" },
+            });
+        }
+
+        console.log("[publish-richmenu] Authorization header exists:", authHeader.substring(0, 20) + "...");
+
         // Get Supabase client
         const supabaseClient = createClient(
             Deno.env.get("SUPABASE_URL") ?? "",
             Deno.env.get("SUPABASE_ANON_KEY") ?? "",
             {
-                global: { headers: { Authorization: req.headers.get("Authorization")! } },
+                global: { headers: { Authorization: authHeader } },
             }
         );
 
         // Verify user
+        console.log("[publish-richmenu] Verifying user...");
         const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
-        if (userError || !user) {
-            return new Response(JSON.stringify({ error: "Unauthorized" }), {
+
+        if (userError) {
+            console.error("[publish-richmenu] Auth error:", userError.message);
+            return new Response(JSON.stringify({
+                error: "認證失敗 - 請重新登入",
+                details: userError.message
+            }), {
                 status: 401,
                 headers: { ...corsHeaders, "Content-Type": "application/json" },
             });
         }
+
+        if (!user) {
+            console.error("[publish-richmenu] No user found");
+            return new Response(JSON.stringify({
+                error: "找不到使用者 - 請重新登入"
+            }), {
+                status: 401,
+                headers: { ...corsHeaders, "Content-Type": "application/json" },
+            });
+        }
+
+        console.log("[publish-richmenu] User verified:", user.id);
 
         // Get LINE token
         const { data: tokenData, error: tokenError } = await supabaseClient.rpc("get_line_token");

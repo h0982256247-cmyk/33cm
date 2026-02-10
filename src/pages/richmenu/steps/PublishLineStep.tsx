@@ -30,6 +30,24 @@ export const PublishLineStep: React.FC<PublishLineStepProps> = ({ menus, onReset
       const { buildPublishRequest, validateImageFileSize } = await import('@/lib/lineRichMenuBuilder');
       const { supabase } = await import('@/lib/supabase');
 
+      // Session Guard: 確保有效的 auth session
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError || !session) {
+        throw new Error('登入狀態已過期，請重新整理頁面並重新登入');
+      }
+
+      // 檢查 token 是否即將過期（30秒內）
+      const expiresAt = session.expires_at ? session.expires_at * 1000 : 0;
+      const now = Date.now();
+      if (expiresAt - now < 30000) {
+        // Token 即將過期，嘗試刷新
+        console.log('[PublishLineStep] Token expiring soon, refreshing...');
+        const { data: { session: newSession }, error: refreshError } = await supabase.auth.refreshSession();
+        if (refreshError || !newSession) {
+          throw new Error('無法刷新登入狀態，請重新登入');
+        }
+      }
+
       // Check image sizes first
       for (const menu of menus) {
         if (menu.imageData && !validateImageFileSize(menu.imageData)) {
@@ -64,11 +82,19 @@ export const PublishLineStep: React.FC<PublishLineStepProps> = ({ menus, onReset
         });
 
         if (response.error) {
+          // 特別處理 401 錯誤
+          if (response.error.message?.includes('session') || response.error.message?.includes('Auth')) {
+            throw new Error(`認證失敗，請重新整理頁面並重新登入。詳細錯誤: ${response.error.message}`);
+          }
           throw new Error(`選單 ${originalMenu.name} 發布失敗: ${response.error.message}`);
         }
 
         if (!response.data?.success) {
-          throw new Error(`選單 ${originalMenu.name} 發布失敗: ${response.data?.error}`);
+          const errorMsg = response.data?.error || '未知錯誤';
+          if (errorMsg.includes('session') || errorMsg.includes('Auth') || errorMsg.includes('認證')) {
+            throw new Error(`認證失敗，請重新整理頁面並重新登入。詳細錯誤: ${errorMsg}`);
+          }
+          throw new Error(`選單 ${originalMenu.name} 發布失敗: ${errorMsg}`);
         }
 
         // 收集結果
@@ -113,17 +139,42 @@ export const PublishLineStep: React.FC<PublishLineStepProps> = ({ menus, onReset
 
       const { supabase } = await import('@/lib/supabase');
 
+      // Session Guard: 確保有效的 auth session
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError || !session) {
+        throw new Error('登入狀態已過期，請重新整理頁面並重新登入');
+      }
+
+      // 檢查 token 是否即將過期（30秒內）
+      const expiresAt = session.expires_at ? session.expires_at * 1000 : 0;
+      const now = Date.now();
+      if (expiresAt - now < 30000) {
+        console.log('[PublishLineStep] Token expiring soon, refreshing...');
+        const { data: { session: newSession }, error: refreshError } = await supabase.auth.refreshSession();
+        if (refreshError || !newSession) {
+          throw new Error('無法刷新登入狀態，請重新登入');
+        }
+      }
+
       // supabase.functions.invoke automatically includes auth token
       const response = await supabase.functions.invoke('publish-richmenu', {
         body: publishData
       });
 
       if (response.error) {
+        // 特別處理 401 錯誤
+        if (response.error.message?.includes('session') || response.error.message?.includes('Auth')) {
+          throw new Error(`認證失敗，請重新整理頁面並重新登入。詳細錯誤: ${response.error.message}`);
+        }
         throw new Error(response.error.message || '發布失敗');
       }
 
       if (!response.data?.success) {
-        throw new Error(response.data?.error || '發布失敗');
+        const errorMsg = response.data?.error || '未知錯誤';
+        if (errorMsg.includes('session') || errorMsg.includes('Auth') || errorMsg.includes('認證')) {
+          throw new Error(`認證失敗，請重新整理頁面並重新登入。詳細錯誤: ${errorMsg}`);
+        }
+        throw new Error(errorMsg);
       }
 
       // 發布成功,記錄排程時間

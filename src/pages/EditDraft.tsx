@@ -378,7 +378,6 @@ export default function EditDraft() {
                   <div className="mt-4">
                     <div className="text-sm font-semibold text-slate-700 mb-2">圖片比例</div>
                     <select
-                      <select
                       className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
                       value={specialSection.ratio || "2:3"}
                       onChange={(e) => setSection({ ...specialSection, ratio: e.target.value as any })}
@@ -405,7 +404,6 @@ export default function EditDraft() {
                     <div>
                       <div className="text-sm font-semibold text-slate-700 mb-2">覆蓋層高度</div>
                       <select
-                        <select
                         className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all border-r-[0.5rem] border-transparent"
                         value={specialSection.overlay?.height || "auto"}
                         onChange={(e) => setSection({ ...specialSection, overlay: { ...specialSection.overlay, height: e.target.value as any } })}
@@ -590,7 +588,6 @@ export default function EditDraft() {
                   <div className="mt-4">
                     <div className="text-sm font-semibold text-slate-700 mb-2">影片比例</div>
                     <select
-                      <select
                       className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
                       value={heroVideo.ratio || "16:9"}
                       onChange={(e) => {

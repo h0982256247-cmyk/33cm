@@ -143,7 +143,7 @@ export function validateDoc(doc: DocModel): ValidationReport {
   }
   else if (doc.type === "carousel") {
     if (doc.cards.length < 1) errors.push(issue("error", "E_CAROUSEL_EMPTY", "Carousel 至少需要 1 張卡片", "cards"));
-    if (doc.cards.length > 5) errors.push(issue("error", "E_CAROUSEL_TOO_MANY", "Carousel 最多只能 5 張卡片", "cards"));
+    if (doc.cards.length > 10) errors.push(issue("error", "E_CAROUSEL_TOO_MANY", "Carousel 最多只能 10 張卡片 (LINE 官方限制)", "cards"));
 
     // Check for video in carousel - NOT SUPPORTED by LINE
     doc.cards.forEach((c, i) => {

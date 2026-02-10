@@ -27,8 +27,29 @@ export const PublishLineStep: React.FC<PublishLineStepProps> = ({ menus, onReset
       // Auto-save draft before publishing
       await onSaveDraft();
 
-      const { buildPublishRequest, validateImageFileSize } = await import('@/lib/lineRichMenuBuilder');
+      const { buildPublishRequest, validateImageFileSize, validateHotspotCount, validateAliasId } = await import('@/lib/lineRichMenuBuilder');
       const { supabase } = await import('@/lib/supabase');
+
+      // 驗證 Rich Menu 規範（LINE 官方限制）
+      for (const menu of menus) {
+        // 驗證 hotspots 數量（最多 20 個）
+        const hotspotValidation = validateHotspotCount(menu);
+        if (!hotspotValidation.valid) {
+          throw new Error(hotspotValidation.message);
+        }
+
+        // 驗證 Alias ID 格式
+        const aliasId = menu.id.replace(/-/g, '');
+        const aliasValidation = validateAliasId(aliasId);
+        if (!aliasValidation.valid) {
+          throw new Error(aliasValidation.message);
+        }
+
+        // 驗證圖片檔案大小（最大 1MB）
+        if (menu.imageData && !validateImageFileSize(menu.imageData)) {
+          throw new Error(`選單「${menu.name}」的圖片檔案過大 (超過 1MB)，請壓縮後再試一次。`);
+        }
+      }
 
       // Session Guard: 確保有效的 auth session
       const { data: { session }, error: sessionError } = await supabase.auth.getSession();
@@ -45,13 +66,6 @@ export const PublishLineStep: React.FC<PublishLineStepProps> = ({ menus, onReset
         const { data: { session: newSession }, error: refreshError } = await supabase.auth.refreshSession();
         if (refreshError || !newSession) {
           throw new Error('無法刷新登入狀態，請重新登入');
-        }
-      }
-
-      // Check image sizes first
-      for (const menu of menus) {
-        if (menu.imageData && !validateImageFileSize(menu.imageData)) {
-          throw new Error(`選單「${menu.name}」的圖片檔案過大 (超過 1MB)，請壓縮後再試一次。`);
         }
       }
 
@@ -134,7 +148,29 @@ export const PublishLineStep: React.FC<PublishLineStepProps> = ({ menus, onReset
 
       // 注意: 排程功能需要額外的後端支援 (例如 cron job)
       // 這裡先直接發布,並記錄排程時間
-      const { buildPublishRequest } = await import('@/lib/lineRichMenuBuilder');
+      const { buildPublishRequest, validateImageFileSize, validateHotspotCount, validateAliasId } = await import('@/lib/lineRichMenuBuilder');
+
+      // 驗證 Rich Menu 規範（LINE 官方限制）
+      for (const menu of menus) {
+        // 驗證 hotspots 數量（最多 20 個）
+        const hotspotValidation = validateHotspotCount(menu);
+        if (!hotspotValidation.valid) {
+          throw new Error(hotspotValidation.message);
+        }
+
+        // 驗證 Alias ID 格式
+        const aliasId = menu.id.replace(/-/g, '');
+        const aliasValidation = validateAliasId(aliasId);
+        if (!aliasValidation.valid) {
+          throw new Error(aliasValidation.message);
+        }
+
+        // 驗證圖片檔案大小（最大 1MB）
+        if (menu.imageData && !validateImageFileSize(menu.imageData)) {
+          throw new Error(`選單「${menu.name}」的圖片檔案過大 (超過 1MB)，請壓縮後再試一次。`);
+        }
+      }
+
       const publishData = buildPublishRequest(menus);
 
       const { supabase } = await import('@/lib/supabase');

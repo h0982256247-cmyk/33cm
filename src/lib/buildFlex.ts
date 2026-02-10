@@ -25,12 +25,31 @@ function buildShareUrl(token?: string, docId?: string, liffId?: string) {
 
 function actionToFlex(a: Action, label?: string, docId?: string, token?: string, liffId?: string) {
   const common = label ? { label } : {};
-  if (a.type === "uri") return { type: "uri", uri: a.uri, ...common };
+
+  if (a.type === "uri") {
+    // LINE Flex Message 的 URI 必須使用 HTTPS（官方規定）
+    // 例外：line:// 和 tel: 協議允許使用
+    let uri = a.uri;
+    if (uri && !uri.startsWith("https://") && !uri.startsWith("line://") && !uri.startsWith("tel:")) {
+      console.warn(`[Flex Message] URI 必須使用 HTTPS，已自動轉換: ${uri}`);
+      // 嘗試自動轉換 http:// 為 https://
+      if (uri.startsWith("http://")) {
+        uri = uri.replace("http://", "https://");
+      } else {
+        // 如果不是有效的協議，使用預設值
+        uri = "https://line.me";
+      }
+    }
+    return { type: "uri", uri, ...common };
+  }
+
   if (a.type === "message") return { type: "message", text: a.text, ...common };
+
   if (a.type === "share") {
     return { type: "uri", uri: buildShareUrl(token, docId, liffId), ...common };
   }
-  return { type: "uri", uri: "https://example.com", ...common };
+
+  return { type: "uri", uri: "https://line.me", ...common };
 }
 
 function safeHttpsUrl(url?: string) {

@@ -119,6 +119,13 @@ export function buildLineRichMenuPayload(
   menu: RichMenu,
   allMenus: RichMenu[]
 ): LineRichMenuPayload {
+  // LINE 官方限制：最多 20 個 areas
+  const areas = menu.hotspots.slice(0, 20).map(hotspot => convertHotspotToArea(hotspot, allMenus));
+
+  if (menu.hotspots.length > 20) {
+    console.warn(`[Rich Menu] 選單「${menu.name}」的 hotspots 數量超過 20 個，已自動截取前 20 個`);
+  }
+
   return {
     size: {
       width: 2500,  // LINE Rich Menu 標準寬度
@@ -127,7 +134,7 @@ export function buildLineRichMenuPayload(
     selected: menu.isMain, // 主選單預設選中
     name: menu.name,
     chatBarText: menu.barText,
-    areas: menu.hotspots.map(hotspot => convertHotspotToArea(hotspot, allMenus)),
+    areas,
   };
 }
 
@@ -152,12 +159,14 @@ export function base64ToBlob(base64: string): Blob {
  * 驗證圖片尺寸是否符合 LINE Rich Menu 規範
  */
 export function validateImageSize(width: number, height: number): boolean {
-  // LINE Rich Menu 支援的尺寸
+  // LINE Rich Menu 支援的所有標準尺寸（官方文件）
   const validSizes = [
-    { width: 2500, height: 1686 }, // 比例 3:2
-    { width: 2500, height: 843 },  // 比例 6:1
-    { width: 1200, height: 810 },  // 比例 3:2 (小尺寸)
-    { width: 1200, height: 405 },  // 比例 6:1 (小尺寸)
+    { width: 2500, height: 1686 }, // 比例 3:2 (大)
+    { width: 2500, height: 843 },  // 比例 6:1 (大)
+    { width: 1200, height: 810 },  // 比例 3:2 (中)
+    { width: 1200, height: 405 },  // 比例 6:1 (中)
+    { width: 800, height: 540 },   // 比例 3:2 (小)
+    { width: 800, height: 270 },   // 比例 6:1 (小)
   ];
 
   return validSizes.some(size => size.width === width && size.height === height);
@@ -167,9 +176,47 @@ export function validateImageSize(width: number, height: number): boolean {
  * 驗證圖片檔案大小是否符合 LINE Rich Menu 規範 (最大 1MB)
  */
 export function validateImageFileSize(base64: string): boolean {
-  // Base64 length * 0.75 is approximately the file size in bytes
-  const sizeInBytes = (base64.length * 3) / 4;
-  return sizeInBytes <= 1024 * 1024; // 1MB
+  // 移除 data URL 前綴 (例如 "data:image/png;base64,")
+  const base64Data = base64.includes(',') ? base64.split(',')[1] : base64;
+
+  // Base64 解碼後的實際檔案大小計算
+  // 每 4 個 base64 字元代表 3 個 bytes
+  const sizeInBytes = (base64Data.length * 3) / 4;
+
+  // 減去 padding 字元（'='）的影響
+  const paddingCount = (base64Data.match(/=/g) || []).length;
+  const actualSize = sizeInBytes - paddingCount;
+
+  return actualSize <= 1024 * 1024; // 1MB
+}
+
+/**
+ * 驗證 Rich Menu hotspots 數量
+ */
+export function validateHotspotCount(menu: RichMenu): { valid: boolean; message?: string } {
+  if (menu.hotspots.length === 0) {
+    return { valid: false, message: '選單至少需要 1 個 hotspot' };
+  }
+  if (menu.hotspots.length > 20) {
+    return { valid: false, message: `選單「${menu.name}」的 hotspots 數量超過 LINE 官方限制（最多 20 個），目前有 ${menu.hotspots.length} 個` };
+  }
+  return { valid: true };
+}
+
+/**
+ * 驗證 Alias ID 格式
+ */
+export function validateAliasId(aliasId: string): { valid: boolean; message?: string } {
+  // LINE 規定：只能包含英數字、底線(_)、連字符(-)，長度 1-100 字元
+  const aliasIdRegex = /^[a-zA-Z0-9_-]{1,100}$/;
+
+  if (!aliasIdRegex.test(aliasId)) {
+    return {
+      valid: false,
+      message: `Alias ID「${aliasId}」格式不符合 LINE 規定（只能包含英數字、底線、連字符，長度 1-100 字元）`
+    };
+  }
+  return { valid: true };
 }
 
 /**

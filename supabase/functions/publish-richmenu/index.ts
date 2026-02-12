@@ -198,6 +198,28 @@ serve(async (req) => {
             }
 
             results.push({ aliasId, richMenuId });
+
+            // 5. Record to database
+            const supabaseAdmin = createClient(
+                Deno.env.get("SUPABASE_URL") ?? "",
+                Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
+            );
+
+            const { error: recordError } = await supabaseAdmin.rpc("record_rich_menu_published", {
+                p_channel_owner_id: user.id,
+                p_draft_id: null,  // Could be passed from frontend if needed
+                p_rich_menu_id: richMenuId,
+                p_rich_menu_alias_id: aliasId,
+                p_name: menu.menuData.name,
+                p_chat_bar_text: menu.menuData.chatBarText,
+                p_menu_data: menu.menuData,
+                p_image_url: menu.imageBase64?.startsWith("data:") ? null : menu.imageBase64,
+                p_is_default: menu.isMain,
+            });
+
+            if (recordError) {
+                console.warn("Failed to record menu to database:", recordError);
+            }
         }
 
         return new Response(JSON.stringify({ success: true, results }), {
@@ -207,8 +229,22 @@ serve(async (req) => {
 
     } catch (error) {
         console.error("Publish Rich Menu error:", error);
-        const errorMessage = error instanceof Error ? error.message : "Unknown error";
-        return new Response(JSON.stringify({ error: errorMessage }), {
+
+        // 提供更詳細的錯誤資訊
+        const errorDetails = {
+            message: error instanceof Error ? error.message : "Unknown error",
+            stack: error instanceof Error ? error.stack : undefined,
+            type: error instanceof Error ? error.constructor.name : typeof error,
+            raw: JSON.stringify(error, Object.getOwnPropertyNames(error))
+        };
+
+        console.error("Error details:", errorDetails);
+
+        return new Response(JSON.stringify({
+            success: false,
+            error: errorDetails.message,
+            errorDetails: errorDetails
+        }), {
             status: 500,
             headers: { ...corsHeaders, "Content-Type": "application/json" },
         });

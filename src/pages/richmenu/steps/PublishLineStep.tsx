@@ -95,20 +95,65 @@ export const PublishLineStep: React.FC<PublishLineStepProps> = ({ menus, onReset
           body: payload
         });
 
+        // 🔍 詳細 Log - 顯示完整的 response
+        console.log('=== Edge Function Response ===');
+        console.log('選單:', originalMenu.name);
+        console.log('Status:', response.status);
+        console.log('Error:', response.error);
+        console.log('Data:', response.data);
+        console.log('================================');
+
         if (response.error) {
+          // 顯示更詳細的錯誤訊息
+          const errorDetails = {
+            選單: originalMenu.name,
+            錯誤訊息: response.error.message || response.error,
+            完整錯誤: response.error,
+            HTTP狀態: response.status,
+            回應資料: response.data
+          };
+
+          console.error('=== 發布錯誤完整資訊 ===');
+          console.error('選單名稱:', originalMenu.name);
+          console.error('HTTP 狀態:', response.status);
+          console.error('錯誤物件:', response.error);
+          console.error('回應資料:', response.data);
+          console.error('完整 response:', JSON.stringify(response, null, 2));
+          console.error('=======================');
+
           // 特別處理 401 錯誤
           if (response.error.message?.includes('session') || response.error.message?.includes('Auth')) {
-            throw new Error(`認證失敗，請重新整理頁面並重新登入。詳細錯誤: ${response.error.message}`);
+            throw new Error(`❌ 認證失敗，請重新整理頁面並重新登入\n\n📋 詳細錯誤資訊:\n${JSON.stringify(errorDetails, null, 2)}`);
           }
-          throw new Error(`選單 ${originalMenu.name} 發布失敗: ${response.error.message}`);
+
+          // 顯示完整錯誤資訊
+          throw new Error(`❌ 選單「${originalMenu.name}」發布失敗\n\n📝 錯誤訊息:\n${response.error.message || JSON.stringify(response.error)}\n\n📊 HTTP 狀態: ${response.status}\n\n📋 完整錯誤資訊:\n${JSON.stringify(errorDetails, null, 2)}\n\n💡 提示: 請將上述錯誤資訊提供給開發人員進行 debug`);
         }
 
         if (!response.data?.success) {
           const errorMsg = response.data?.error || '未知錯誤';
+          const errorDetails = {
+            選單: originalMenu.name,
+            錯誤訊息: errorMsg,
+            完整回應: response.data,
+            HTTP狀態: response.status,
+            後端詳細錯誤: response.data?.errorDetails
+          };
+
+          console.error('=== 發布失敗完整資訊 ===');
+          console.error('選單名稱:', originalMenu.name);
+          console.error('HTTP 狀態:', response.status);
+          console.error('錯誤訊息:', errorMsg);
+          console.error('完整回應:', response.data);
+          console.error('後端錯誤詳情:', response.data?.errorDetails);
+          console.error('=======================');
+
           if (errorMsg.includes('session') || errorMsg.includes('Auth') || errorMsg.includes('認證')) {
-            throw new Error(`認證失敗，請重新整理頁面並重新登入。詳細錯誤: ${errorMsg}`);
+            throw new Error(`❌ 認證失敗，請重新整理頁面並重新登入\n\n📋 詳細錯誤資訊:\n${JSON.stringify(errorDetails, null, 2)}`);
           }
-          throw new Error(`選單 ${originalMenu.name} 發布失敗: ${errorMsg}`);
+
+          // 顯示完整錯誤資訊
+          throw new Error(`❌ 選單「${originalMenu.name}」發布失敗\n\n📝 錯誤訊息:\n${errorMsg}\n\n📊 HTTP 狀態: ${response.status}\n\n📋 完整錯誤資訊:\n${JSON.stringify(errorDetails, null, 2)}\n\n💡 提示: 請將上述錯誤資訊提供給開發人員進行 debug`);
         }
 
         // 收集結果

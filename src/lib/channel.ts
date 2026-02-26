@@ -31,23 +31,43 @@ export async function getChannel(): Promise<LineChannel | null> {
  * 檢查用戶是否已綁定 LINE Channel
  */
 export async function hasChannel(): Promise<boolean> {
-    const { data, error } = await supabase
-        .from("rm_line_channels_safe")
-        .select("id")
-        .limit(1);
+    try {
+        const { data, error } = await supabase
+            .from("rm_line_channels_safe")
+            .select("id, name, is_active")
+            .limit(1);
 
-    if (error) {
-        console.warn("[channel] hasChannel error:", error);
+        if (error) {
+            console.error("[channel] hasChannel error:", error);
+            console.error("[channel] Error details:", {
+                message: error.message,
+                code: error.code,
+                details: error.details,
+                hint: error.hint
+            });
+            return false;
+        }
+
+        const hasToken = Array.isArray(data) && data.length > 0;
+        console.log("[channel] hasChannel result:", {
+            hasToken,
+            recordCount: data?.length || 0,
+            channelInfo: data?.[0] || null
+        });
+
+        return hasToken;
+    } catch (err) {
+        console.error("[channel] hasChannel exception:", err);
         return false;
     }
-
-    return Array.isArray(data) && data.length > 0;
 }
 
 /**
  * 新增或更新 LINE Channel（使用 RPC）
  */
 export async function upsertChannel(name: string, accessToken: string): Promise<string | null> {
+    console.log("[channel] upsertChannel: Saving channel...", { name });
+
     const { data, error } = await supabase.rpc("rm_channel_upsert", {
         p_name: name,
         p_access_token: accessToken,
@@ -55,8 +75,20 @@ export async function upsertChannel(name: string, accessToken: string): Promise<
 
     if (error) {
         console.error("[channel] upsertChannel error:", error);
+        console.error("[channel] Error details:", {
+            message: error.message,
+            code: error.code,
+            details: error.details,
+            hint: error.hint
+        });
         throw new Error(error.message);
     }
+
+    console.log("[channel] upsertChannel: ✅ Channel saved successfully", { channelId: data });
+
+    // 驗證保存是否成功
+    const hasToken = await hasChannel();
+    console.log("[channel] upsertChannel: Token verification after save:", { hasToken });
 
     return data as string;
 }

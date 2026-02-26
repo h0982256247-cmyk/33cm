@@ -92,9 +92,10 @@ GRANT EXECUTE ON FUNCTION public.get_channel_status() TO authenticated;
 COMMENT ON FUNCTION public.get_channel_status() IS '前端查詢 LINE Channel 狀態（不含 token）';
 
 -- =========================================
--- 5. 保留/更新 rm_channel_upsert RPC
+-- 5. 建立 rm_channel_upsert RPC（只允許新增）
 -- =========================================
--- 前端仍然需要能夠提交/更新 token
+-- 前端只能新增 token，不允許更新
+-- 一個帳號只能設定一次 LINE Token
 CREATE OR REPLACE FUNCTION public.rm_channel_upsert(
     p_name TEXT,
     p_access_token TEXT
@@ -133,14 +134,8 @@ BEGIN
         )
         RETURNING id INTO v_id;
     ELSE
-        -- 更新記錄
-        UPDATE public.rm_line_channels
-        SET
-            name = COALESCE(p_name, name),
-            access_token_encrypted = p_access_token,
-            is_active = TRUE,
-            updated_at = NOW()
-        WHERE id = v_id;
+        -- 已有記錄，不允許更新 - 一個帳號只能設定一次 token
+        RAISE EXCEPTION '此帳號已設定 LINE Token，一個帳號只能設定一次';
     END IF;
 
     -- 只回傳 ID，不回傳 token
@@ -151,7 +146,7 @@ $$;
 -- 授權 authenticated 用戶執行此 RPC
 GRANT EXECUTE ON FUNCTION public.rm_channel_upsert(TEXT, TEXT) TO authenticated;
 
-COMMENT ON FUNCTION public.rm_channel_upsert(TEXT, TEXT) IS '前端新增/更新 LINE Channel（不回傳 token）';
+COMMENT ON FUNCTION public.rm_channel_upsert(TEXT, TEXT) IS '前端新增 LINE Channel（不允許更新，一個帳號只能設定一次）';
 
 -- =========================================
 -- 6. 撤銷 authenticated 對表的直接 SELECT 權限
@@ -165,5 +160,6 @@ REVOKE SELECT ON public.rm_line_channels FROM anon;
 -- 現在：
 -- ✅ 前端無法 SELECT public.rm_line_channels
 -- ✅ 前端只能透過 get_channel_status() 取得非敏感資訊
--- ✅ 前端可以透過 rm_channel_upsert() 提交 token
+-- ✅ 前端可以透過 rm_channel_upsert() 新增 token（只能設定一次，不允許更新）
 -- ✅ Edge Functions 使用 service role 可以讀取 token
+-- ✅ 一個帳號只會有一個 LINE Token，設定後無法從前端更新

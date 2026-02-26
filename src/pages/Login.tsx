@@ -159,9 +159,16 @@ export default function Login() {
       await upsertChannel(channelName, accessToken);
       nav("/home");
     } catch (err: any) {
-      setTokenMsg(err?.message || "儲存失敗");
-    } finally {
-      setValidating(false);
+      const errorMsg = err?.message || "儲存失敗";
+
+      // 如果是已設定 token 的錯誤，顯示提示後自動導向首頁
+      if (errorMsg.includes("已設定") || errorMsg.includes("只能設定一次")) {
+        setTokenMsg("您已設定過 LINE Token，正在進入系統...");
+        setTimeout(() => nav("/home"), 2000);
+      } else {
+        setTokenMsg(errorMsg);
+        setValidating(false);
+      }
     }
   };
 

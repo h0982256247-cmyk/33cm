@@ -2,7 +2,7 @@ import { supabase } from "./supabase";
 
 /**
  * 透過 LINE OA 廣播 Flex Message
- * 使用後端 API 代理 LINE Messaging API 呼叫
+ * 使用 Supabase Edge Function 呼叫 LINE Messaging API
  * @param flexMessages Flex Message 內容陣列
  * @param altText 替代文字
  * @returns 廣播結果
@@ -20,49 +20,30 @@ export async function broadcastFlexMessage(
       };
     }
 
-    // 取得認證 Token
-    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-    if (sessionError || !session) {
-      return {
-        success: false,
-        error: "登入狀態已過期，請重新整理頁面並重新登入"
-      };
-    }
+    console.log('[Broadcast] Calling Supabase Edge Function...');
 
-    console.log('[Broadcast] Calling backend API...');
-
-    // 呼叫後端 API（只需要第一個 flexMessage，因為是單一訊息廣播）
-    const response = await fetch("/api/line/broadcast", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${session.access_token}`,
-      },
-      body: JSON.stringify({
-        flexContents: flexMessages[0], // 後端 API 一次處理一個 flex message
+    // 呼叫 Supabase Edge Function
+    const { data, error } = await supabase.functions.invoke('broadcast', {
+      body: {
+        flexMessages,
         altText
-      }),
+      }
     });
 
-    console.log('[Broadcast] Backend API response status:', response.status);
+    console.log('[Broadcast] Edge Function response:', { data, error });
 
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      console.error('[Broadcast] Backend API error:', errorData);
-
+    if (error) {
+      console.error('[Broadcast] Edge Function error:', error);
       return {
         success: false,
-        error: errorData.error || `廣播失敗 (HTTP ${response.status})`
+        error: error.message || "呼叫 Edge Function 失敗"
       };
     }
 
-    const data = await response.json();
-    console.log('[Broadcast] Backend API response data:', data);
-
-    if (!data.success) {
+    if (!data || !data.success) {
       return {
         success: false,
-        error: data.error || "廣播失敗"
+        error: data?.error || "廣播失敗"
       };
     }
 

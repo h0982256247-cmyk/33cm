@@ -6,44 +6,32 @@ export interface BroadcastResult {
 }
 
 /**
- * 取得當前用戶的 Supabase Auth Token（用於後端驗證）
- */
-async function getAuthToken(): Promise<string | null> {
-    const { data: { session } } = await supabase.auth.getSession();
-    return session?.access_token || null;
-}
-
-/**
  * 廣播 Flex Message 給所有好友
- * 透過後端 API 呼叫 LINE Messaging API
+ * 透過 Supabase Edge Function 呼叫 LINE Messaging API
  */
 export async function broadcastFlexMessage(
     flexContents: any,
     altText: string
 ): Promise<BroadcastResult> {
     try {
-        const authToken = await getAuthToken();
-        if (!authToken) {
+        const { data, error } = await supabase.functions.invoke('broadcast', {
+            body: {
+                flexMessages: [flexContents],
+                altText
+            }
+        });
+
+        if (error) {
             return {
                 success: false,
-                error: "未登入或 Session 已過期",
+                error: error.message || "呼叫 Edge Function 失敗",
             };
         }
 
-        const response = await fetch("/api/line/broadcast", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                "Authorization": `Bearer ${authToken}`,
-            },
-            body: JSON.stringify({ flexContents, altText }),
-        });
-
-        if (!response.ok) {
-            const errorData = await response.json().catch(() => ({}));
+        if (!data || !data.success) {
             return {
                 success: false,
-                error: errorData.error || `HTTP ${response.status}: ${response.statusText}`,
+                error: data?.error || "廣播失敗",
             };
         }
 
@@ -58,7 +46,7 @@ export async function broadcastFlexMessage(
 
 /**
  * 取得好友數量（用於預估廣播影響範圍）
- * 透過後端 API 呼叫 LINE Messaging API
+ * 透過 Supabase Edge Function 呼叫 LINE Messaging API
  */
 export async function getFollowerCount(): Promise<{
     success: boolean;
@@ -66,29 +54,24 @@ export async function getFollowerCount(): Promise<{
     error?: string;
 }> {
     try {
-        const authToken = await getAuthToken();
-        if (!authToken) {
-            return {
-                success: false,
-                error: "未登入或 Session 已過期",
-            };
-        }
-
-        const response = await fetch("/api/line/followers", {
-            headers: {
-                "Authorization": `Bearer ${authToken}`,
-            },
+        const { data, error } = await supabase.functions.invoke('get-followers', {
+            method: 'GET'
         });
 
-        if (!response.ok) {
-            const errorData = await response.json().catch(() => ({}));
+        if (error) {
             return {
                 success: false,
-                error: errorData.error || `HTTP ${response.status}`,
+                error: error.message || "呼叫 Edge Function 失敗",
             };
         }
 
-        const data = await response.json();
+        if (!data || !data.success) {
+            return {
+                success: false,
+                error: data?.error || "取得好友數量失敗",
+            };
+        }
+
         return {
             success: true,
             count: data.count,
@@ -102,7 +85,7 @@ export async function getFollowerCount(): Promise<{
 }
 
 /**
- * 發布 Rich Menu（透過後端 API）
+ * 發布 Rich Menu（透過 Supabase Edge Function）
  */
 export async function publishRichMenus(menus: Array<{
     menuData: any;
@@ -115,32 +98,27 @@ export async function publishRichMenus(menus: Array<{
     error?: string;
 }> {
     try {
-        const authToken = await getAuthToken();
-        if (!authToken) {
-            return {
-                success: false,
-                error: "未登入或 Session 已過期",
-            };
-        }
-
-        const response = await fetch("/api/line/richmenu/publish", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                "Authorization": `Bearer ${authToken}`,
-            },
-            body: JSON.stringify({ menus }),
+        const { data, error } = await supabase.functions.invoke('publish-richmenu', {
+            body: {
+                menus,
+                cleanOldMenus: true
+            }
         });
 
-        if (!response.ok) {
-            const errorData = await response.json().catch(() => ({}));
+        if (error) {
             return {
                 success: false,
-                error: errorData.error || `HTTP ${response.status}`,
+                error: error.message || "呼叫 Edge Function 失敗",
             };
         }
 
-        const data = await response.json();
+        if (!data || !data.success) {
+            return {
+                success: false,
+                error: data?.error || "發布 Rich Menu 失敗",
+            };
+        }
+
         return {
             success: true,
             results: data.results,

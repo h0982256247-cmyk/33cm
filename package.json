@@ -19,6 +19,7 @@
     "autoprefixer": "^10.4.20",
     "clsx": "^2.1.1",
     "concurrently": "^9.0.1",
+    "dotenv": "^17.3.1",
     "express": "^4.19.2",
     "postcss": "^8.4.47",
     "qrcode.react": "^4.2.0",

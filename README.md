@@ -45,22 +45,31 @@ npm run dev
 
 ---
 
-## 2) 環境變數（本機 / Zeabur 都一樣）
-建立 `.env`（或在 Zeabur Variables 設定）：
+## 2) 環境變數設定
+
+### 本機開發 (.env)
 ```env
 # 前端設定
 VITE_SUPABASE_URL=你的_supabase_url
 VITE_SUPABASE_ANON_KEY=你的_anon_key
 VITE_LIFF_ID=（選填，用於分享/自動分享）
-VITE_APP_URL=https://你的網域（用於分享連結）
+VITE_APP_URL=http://localhost:5173
 
-# 🔒 後端設定（重要！用於安全存取 LINE Token）
+# 🔒 後端設定（本機用於 server.js 的輔助功能）
 SUPABASE_SERVICE_ROLE_KEY=你的_service_role_key
 ```
 
-⚠️ **重要提醒**：
-- `SUPABASE_SERVICE_ROLE_KEY` 可在 Supabase → Settings → API → `service_role` key 找到
-- 此 Key 擁有完整權限，**切勿**提交到 Git 或暴露在前端！
+### Zeabur 部署環境變數
+```env
+VITE_SUPABASE_URL=你的_supabase_url
+VITE_SUPABASE_ANON_KEY=你的_anon_key
+VITE_APP_URL=https://你的網域
+VITE_LIFF_ID=（選填）
+```
+
+⚠️ **注意**：
+- Zeabur 上**不需要**設定 `SUPABASE_SERVICE_ROLE_KEY`（LINE API 呼叫已改用 Edge Functions）
+- 本機開發時保留 Service Role Key 是為了 server.js 的輔助功能（如 token 驗證）
 
 ---
 
@@ -68,18 +77,24 @@ SUPABASE_SERVICE_ROLE_KEY=你的_service_role_key
 
 ### Token 安全處理
 - **前端**：只能看到 Channel 基本資訊（id, name），無法讀取 `access_token`
-- **後端**：使用 Service Role Key 安全地讀取 token，並代理所有 LINE API 呼叫
-- **流程**：前端 → 後端 API (`/api/line/*`) → LINE API
+- **Edge Functions**：在 Supabase 端執行，使用 RPC `get_line_token()` 安全地讀取 token
+- **流程**：前端 → Supabase Edge Functions → LINE API
 
 ### Token 共用邏輯
 - 登入後，入口頁會呼叫 `rm_channel_upsert()` 把 token 寫入 `rm_line_channels`
-- 後續不管你在 Rich Menu 或 Flex Message，都透過**後端 API** 發送 LINE API
+- 後續不管你在 Rich Menu 或 Flex Message，都透過 **Supabase Edge Functions** 發送 LINE API
 - 你不用拆兩套 token；**一個使用者只會有一筆 active token**
 
-### 後端 API Endpoints
-- `POST /api/line/broadcast` - 廣播 Flex Message
-- `GET /api/line/followers` - 取得好友數量
-- `POST /api/line/richmenu/publish` - 發布 Rich Menu
+### Supabase Edge Functions
+已部署的 Edge Functions：
+- `broadcast` - 廣播 Flex Message 給所有好友
+- `publish-richmenu` - 發布 Rich Menu 到 LINE OA
+
+部署命令：
+```bash
+supabase functions deploy broadcast --project-ref <your-project-ref>
+supabase functions deploy publish-richmenu --project-ref <your-project-ref>
+```
 
 ---
 
@@ -92,17 +107,18 @@ SUPABASE_SERVICE_ROLE_KEY=你的_service_role_key
 ### Q2：為什麼前端無法直接呼叫 LINE API？
 ✅ **這是正確的安全設計！**
 - 前端從 `rm_line_channels_safe` VIEW 讀取（不含 token）
-- 所有 LINE API 呼叫都透過後端 `/api/line/*` endpoints
-- 後端使用 Service Role Key 安全地讀取 token
+- 所有 LINE API 呼叫都透過 **Supabase Edge Functions**
+- Edge Functions 使用 RPC `get_line_token()` 安全地讀取 token
 
 ### Q3：如何在 Zeabur 設定環境變數？
 1. 進入 Zeabur 專案 → Variables
 2. 新增以下變數：
-   - `VITE_SUPABASE_URL`
-   - `VITE_SUPABASE_ANON_KEY`
-   - `SUPABASE_SERVICE_ROLE_KEY` ⚠️ **重要！**
-   - `VITE_APP_URL`
+   - `VITE_SUPABASE_URL` ⚠️ **必填**
+   - `VITE_SUPABASE_ANON_KEY` ⚠️ **必填**
+   - `VITE_APP_URL` ⚠️ **必填**
    - `VITE_LIFF_ID`（選填）
+
+**注意**：不需要設定 `SUPABASE_SERVICE_ROLE_KEY`（已改用 Edge Functions）
 
 ### Q4：我想把 Token 存加密（不是明碼）
 目前 DB 欄位命名為 `access_token_encrypted`（方便你之後替換成真正加密流程）。

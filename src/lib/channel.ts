@@ -8,34 +8,34 @@ export interface LineChannel {
 /**
  * 取得當前用戶的 LINE Channel 基本資訊
  * 注意：不再回傳 accessToken，token 只在後端存取
+ * 使用 RPC get_channel_status() 取得非敏感資訊
  */
 export async function getChannel(): Promise<LineChannel | null> {
-    const { data, error } = await supabase
-        .from("rm_line_channels_safe")
-        .select("id, name")
-        .limit(1)
-        .single();
+    const { data, error } = await supabase.rpc("get_channel_status");
 
     if (error || !data) {
         console.warn("[channel] getChannel error:", error);
         return null;
     }
 
+    // get_channel_status 回傳 { has_channel, name, updated_at }
+    if (!data.has_channel) {
+        return null;
+    }
+
     return {
-        id: data.id,
+        id: "", // RPC 不回傳 id，前端也不需要
         name: data.name,
     };
 }
 
 /**
  * 檢查用戶是否已綁定 LINE Channel
+ * 使用 RPC get_channel_status() 取得非敏感資訊
  */
 export async function hasChannel(): Promise<boolean> {
     try {
-        const { data, error } = await supabase
-            .from("rm_line_channels_safe")
-            .select("id, name, is_active")
-            .limit(1);
+        const { data, error } = await supabase.rpc("get_channel_status");
 
         if (error) {
             console.error("[channel] hasChannel error:", error);
@@ -48,11 +48,11 @@ export async function hasChannel(): Promise<boolean> {
             return false;
         }
 
-        const hasToken = Array.isArray(data) && data.length > 0;
+        const hasToken = data?.has_channel === true;
         console.log("[channel] hasChannel result:", {
             hasToken,
-            recordCount: data?.length || 0,
-            channelInfo: data?.[0] || null
+            channelName: data?.name || null,
+            updatedAt: data?.updated_at || null
         });
 
         return hasToken;

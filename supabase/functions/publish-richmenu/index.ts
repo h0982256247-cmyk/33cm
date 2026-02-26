@@ -49,15 +49,29 @@ serve(async (req) => {
         }
         console.log("[publish-richmenu] ✅ User:", user.id);
 
-        // Get LINE token
-        const { data: lineToken, error: tokenError } = await supabaseClient.rpc("get_line_token");
-        if (tokenError || !lineToken) {
+        // Get LINE token via Service Role (bypasses RLS)
+        console.log("[publish-richmenu] Fetching LINE token...");
+        const supabaseAdmin = createClient(
+            Deno.env.get("SUPABASE_URL") ?? "",
+            Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
+        );
+
+        const { data: channelData, error: tokenError } = await supabaseAdmin
+            .from("rm_line_channels")
+            .select("access_token_encrypted")
+            .eq("user_id", user.id)
+            .eq("is_active", true)
+            .single();
+
+        if (tokenError || !channelData || !channelData.access_token_encrypted) {
             console.error("[publish-richmenu] ❌ Token error:", tokenError);
             return new Response(
                 JSON.stringify({ success: false, error: "LINE Token 未設定，請先綁定 LINE Channel" }),
                 { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
             );
         }
+
+        const lineToken = channelData.access_token_encrypted;
         console.log("[publish-richmenu] ✅ LINE token retrieved, length:", lineToken.length);
 
         // Parse body

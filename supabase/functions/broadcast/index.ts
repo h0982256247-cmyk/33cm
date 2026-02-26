@@ -66,9 +66,19 @@ serve(async (req) => {
 
         console.log("[broadcast] ✅ User verified:", user.id);
 
-        // Get LINE token via RPC (queries rm_line_channels)
+        // Get LINE token via Service Role (bypasses RLS)
         console.log("[broadcast] Fetching LINE token...");
-        const { data: tokenData, error: tokenError } = await supabaseClient.rpc("get_line_token");
+        const supabaseAdmin = createClient(
+            Deno.env.get("SUPABASE_URL") ?? "",
+            Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
+        );
+
+        const { data: channelData, error: tokenError } = await supabaseAdmin
+            .from("rm_line_channels")
+            .select("access_token_encrypted")
+            .eq("user_id", user.id)
+            .eq("is_active", true)
+            .single();
 
         if (tokenError) {
             console.error("[broadcast] ❌ LINE token fetch error:", tokenError);
@@ -82,7 +92,7 @@ serve(async (req) => {
             });
         }
 
-        if (!tokenData) {
+        if (!channelData || !channelData.access_token_encrypted) {
             console.error("[broadcast] ❌ LINE token not found in database");
             return new Response(JSON.stringify({
                 success: false,
@@ -93,7 +103,8 @@ serve(async (req) => {
             });
         }
 
-        console.log("[broadcast] ✅ LINE token retrieved, length:", tokenData.length);
+        const lineToken = channelData.access_token_encrypted;
+        console.log("[broadcast] ✅ LINE token retrieved, length:", lineToken.length);
 
         // Parse request body
         const body = await req.json();
@@ -136,7 +147,7 @@ serve(async (req) => {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
-                Authorization: `Bearer ${tokenData}`,
+                Authorization: `Bearer ${lineToken}`,
             },
             body: JSON.stringify({ messages }),
         });

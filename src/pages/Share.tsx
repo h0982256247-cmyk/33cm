@@ -330,12 +330,14 @@ export default function Share() {
         {/* Toast 訊息 */}
         {toast ? (
           <div
-            className={`mb-6 rounded-2xl px-6 py-3 text-sm shadow-sm ${toast.type === "ok"
+            className={`mb-6 rounded-2xl px-6 py-3 text-sm shadow-sm max-w-2xl ${toast.type === "ok"
               ? "bg-green-50 text-green-700 border border-green-100"
               : "bg-red-50 text-red-700 border border-red-100"
               }`}
           >
-            {toast.msg}
+            <div className="whitespace-pre-wrap text-left font-mono text-xs">
+              {toast.msg}
+            </div>
           </div>
         ) : null}
 

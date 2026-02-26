@@ -95,7 +95,7 @@ export async function upsertChannel(name: string, accessToken: string): Promise<
 
 /**
  * 驗證 LINE Channel Access Token 是否有效
- * 透過呼叫 LINE API 的 /v2/bot/info 端點驗證
+ * 透過 Supabase Edge Function 呼叫 LINE API 的 /v2/bot/info 端點驗證
  */
 export async function validateAccessToken(accessToken: string): Promise<{
     valid: boolean;
@@ -103,27 +103,32 @@ export async function validateAccessToken(accessToken: string): Promise<{
     error?: string;
 }> {
     try {
-        // Use local server proxy to avoid CORS issues
-        const response = await fetch("/api/validate-token", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ accessToken }),
+        console.log("[channel] validateAccessToken: Calling Edge Function...");
+
+        const { data, error } = await supabase.functions.invoke("validate-token", {
+            body: { accessToken },
         });
 
-        if (!response.ok) {
+        if (error) {
+            console.error("[channel] validateAccessToken: Edge Function error:", error);
             return {
                 valid: false,
-                error: `Server Error: ${response.status}`,
+                error: error.message || "驗證服務錯誤",
             };
         }
 
-        const data = await response.json();
+        console.log("[channel] validateAccessToken: Result:", {
+            valid: data.valid,
+            botName: data.botName || null
+        });
+
         return {
             valid: data.valid,
             botName: data.botName,
             error: data.error,
         };
     } catch (err: any) {
+        console.error("[channel] validateAccessToken: Exception:", err);
         return {
             valid: false,
             error: err.message || "網路錯誤",

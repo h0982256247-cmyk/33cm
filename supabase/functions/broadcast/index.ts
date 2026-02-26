@@ -24,9 +24,13 @@ serve(async (req) => {
 
     try {
         console.log("[broadcast] ===== Request Start =====");
+        console.log("[broadcast] Method:", req.method);
+        console.log("[broadcast] URL:", req.url);
 
         // Check Authorization header
         const authHeader = req.headers.get("Authorization");
+        console.log("[broadcast] Authorization header:", authHeader ? `Present (${authHeader.substring(0, 20)}...)` : "MISSING");
+
         if (!authHeader) {
             console.error("[broadcast] ❌ Missing Authorization header");
             return new Response(JSON.stringify({
@@ -40,24 +44,57 @@ serve(async (req) => {
 
         console.log("[broadcast] ✅ Authorization header present");
 
+        // Check environment variables
+        const supabaseUrl = Deno.env.get("SUPABASE_URL");
+        const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY");
+        console.log("[broadcast] SUPABASE_URL:", supabaseUrl ? "✅ Set" : "❌ MISSING");
+        console.log("[broadcast] SUPABASE_ANON_KEY:", supabaseAnonKey ? "✅ Set" : "❌ MISSING");
+
+        if (!supabaseUrl || !supabaseAnonKey) {
+            console.error("[broadcast] ❌ Missing environment variables");
+            return new Response(JSON.stringify({
+                success: false,
+                error: "Server configuration error - missing environment variables"
+            }), {
+                status: 500,
+                headers: { ...corsHeaders, "Content-Type": "application/json" },
+            });
+        }
+
         // Get Supabase client
+        console.log("[broadcast] Creating Supabase client...");
         const supabaseClient = createClient(
-            Deno.env.get("SUPABASE_URL") ?? "",
-            Deno.env.get("SUPABASE_ANON_KEY") ?? "",
+            supabaseUrl,
+            supabaseAnonKey,
             {
                 global: { headers: { Authorization: authHeader } },
             }
         );
+        console.log("[broadcast] ✅ Supabase client created");
 
         // Verify user
+        console.log("[broadcast] Verifying user with getUser()...");
         const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
 
-        if (userError || !user) {
-            console.error("[broadcast] ❌ Auth error:", userError);
+        if (userError) {
+            console.error("[broadcast] ❌ getUser() error:", userError);
+            console.error("[broadcast] Error details:", JSON.stringify(userError, null, 2));
             return new Response(JSON.stringify({
                 success: false,
-                error: "認證失敗 - 請重新登入",
+                error: "認證失敗 - getUser() error",
                 details: userError?.message
+            }), {
+                status: 401,
+                headers: { ...corsHeaders, "Content-Type": "application/json" },
+            });
+        }
+
+        if (!user) {
+            console.error("[broadcast] ❌ No user returned from getUser()");
+            return new Response(JSON.stringify({
+                success: false,
+                error: "認證失敗 - No user found",
+                details: "getUser() returned null"
             }), {
                 status: 401,
                 headers: { ...corsHeaders, "Content-Type": "application/json" },

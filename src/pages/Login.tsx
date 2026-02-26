@@ -165,10 +165,6 @@ export default function Login() {
     }
   };
 
-  const handleSkipToken = () => {
-    nav("/home");
-  };
-
   if (loading && step === "auth") {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
@@ -309,14 +305,6 @@ export default function Login() {
                     驗證並儲存...
                   </span>
                 ) : "儲存設定"}
-              </button>
-
-              <button
-                type="button"
-                onClick={handleSkipToken}
-                className="w-full text-center text-sm text-slate-500 hover:text-slate-700 font-medium transition-colors"
-              >
-                稍後再設定
               </button>
             </form>
           )}

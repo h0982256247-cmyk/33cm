@@ -324,5 +324,49 @@ on public.templates for delete
 using (auth.uid() = owner_id);
 
 -- =========================================
+-- 5) Edge Function RPCs (broadcast / publish-richmenu)
+-- =========================================
+
+-- get_line_token: Edge Function 用來取得 LINE Channel Access Token
+create or replace function public.get_line_token()
+returns text
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_token text;
+begin
+  select access_token_encrypted into v_token
+  from public.rm_line_channels
+  where user_id = auth.uid()
+  order by updated_at desc
+  limit 1;
+
+  return v_token;
+end;
+$$;
+
+revoke all on function get_line_token() from public;
+grant execute on function get_line_token() to authenticated;
+
+-- check_line_token: 前端用來檢查是否已設定 LINE Token
+create or replace function public.check_line_token()
+returns boolean
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  return exists (
+    select 1 from public.rm_line_channels
+    where user_id = auth.uid()
+  );
+end;
+$$;
+
+grant execute on function public.check_line_token() to authenticated;
+
+-- =========================================
 -- DONE
 -- =========================================

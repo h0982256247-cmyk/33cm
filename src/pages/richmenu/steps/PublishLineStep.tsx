@@ -69,102 +69,44 @@ export const PublishLineStep: React.FC<PublishLineStepProps> = ({ menus, onReset
         }
       }
 
-      // 改為逐一發送選單，避免 Payload 過大導致 413 或 Timeout
-      // 第一個選單同時負責觸發清理舊選單 (cleanOldMenus: true)
-      // 1. 先建立完整的 Publish Request 資料，確保所有選單之間的連結關係 (Switch Action) 正確解析
-      // 如果直接分批傳 [menu] 進去，buildPublishRequest 會找不到目標選單而導致連結失效
+      // 建立完整的 Publish Request 資料
       const fullPublishRequest = buildPublishRequest(menus);
 
-      // 收集所有發布結果
-      const allResults: { aliasId: string; richMenuId: string }[] = [];
+      console.log('[PublishLineStep] Calling backend API with all menus...');
 
-      // 2. 改為逐一發送選單，避免 Payload 過大導致 413 或 Timeout
-      // 第一個選單同時負責觸發清理舊選單 (cleanOldMenus: true)
-      for (const [index, menuItem] of fullPublishRequest.menus.entries()) {
-        const originalMenu = menus[index]; // 為了顯示名稱
-        console.log(`Starting upload for menu ${index + 1}/${menus.length}: ${originalMenu.name}`);
+      // 呼叫後端 API 一次發布所有選單
+      const response = await fetch('/api/line/richmenu/publish', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          menus: fullPublishRequest.menus
+        }),
+      });
 
-        // 分批建立請求，每次只包含一個選單 payload
-        const payload = {
-          menus: [menuItem],
-          cleanOldMenus: index === 0
-        };
+      console.log('[PublishLineStep] Backend API response status:', response.status);
 
-        // supabase.functions.invoke automatically includes auth token
-        const response = await supabase.functions.invoke('publish-richmenu', {
-          body: payload
-        });
-
-        // 🔍 詳細 Log - 顯示完整的 response
-        console.log('=== Edge Function Response ===');
-        console.log('選單:', originalMenu.name);
-        console.log('Status:', response.status);
-        console.log('Error:', response.error);
-        console.log('Data:', response.data);
-        console.log('================================');
-
-        if (response.error) {
-          // 顯示更詳細的錯誤訊息
-          const errorDetails = {
-            選單: originalMenu.name,
-            錯誤訊息: response.error.message || response.error,
-            完整錯誤: response.error,
-            HTTP狀態: response.status,
-            回應資料: response.data
-          };
-
-          console.error('=== 發布錯誤完整資訊 ===');
-          console.error('選單名稱:', originalMenu.name);
-          console.error('HTTP 狀態:', response.status);
-          console.error('錯誤物件:', response.error);
-          console.error('回應資料:', response.data);
-          console.error('完整 response:', JSON.stringify(response, null, 2));
-          console.error('=======================');
-
-          // 特別處理 401 錯誤
-          if (response.error.message?.includes('session') || response.error.message?.includes('Auth')) {
-            throw new Error(`❌ 認證失敗，請重新整理頁面並重新登入\n\n📋 詳細錯誤資訊:\n${JSON.stringify(errorDetails, null, 2)}`);
-          }
-
-          // 顯示完整錯誤資訊
-          throw new Error(`❌ 選單「${originalMenu.name}」發布失敗\n\n📝 錯誤訊息:\n${response.error.message || JSON.stringify(response.error)}\n\n📊 HTTP 狀態: ${response.status}\n\n📋 完整錯誤資訊:\n${JSON.stringify(errorDetails, null, 2)}\n\n💡 提示: 請將上述錯誤資訊提供給開發人員進行 debug`);
-        }
-
-        if (!response.data?.success) {
-          const errorMsg = response.data?.error || '未知錯誤';
-          const errorDetails = {
-            選單: originalMenu.name,
-            錯誤訊息: errorMsg,
-            完整回應: response.data,
-            HTTP狀態: response.status,
-            後端詳細錯誤: response.data?.errorDetails
-          };
-
-          console.error('=== 發布失敗完整資訊 ===');
-          console.error('選單名稱:', originalMenu.name);
-          console.error('HTTP 狀態:', response.status);
-          console.error('錯誤訊息:', errorMsg);
-          console.error('完整回應:', response.data);
-          console.error('後端錯誤詳情:', response.data?.errorDetails);
-          console.error('=======================');
-
-          if (errorMsg.includes('session') || errorMsg.includes('Auth') || errorMsg.includes('認證')) {
-            throw new Error(`❌ 認證失敗，請重新整理頁面並重新登入\n\n📋 詳細錯誤資訊:\n${JSON.stringify(errorDetails, null, 2)}`);
-          }
-
-          // 顯示完整錯誤資訊
-          throw new Error(`❌ 選單「${originalMenu.name}」發布失敗\n\n📝 錯誤訊息:\n${errorMsg}\n\n📊 HTTP 狀態: ${response.status}\n\n📋 完整錯誤資訊:\n${JSON.stringify(errorDetails, null, 2)}\n\n💡 提示: 請將上述錯誤資訊提供給開發人員進行 debug`);
-        }
-
-        // 收集結果
-        if (response.data.results) {
-          allResults.push(...response.data.results);
-        }
+      // 檢查 HTTP 狀態
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        console.error('[PublishLineStep] Backend API error:', errorData);
+        throw new Error(`❌ 發布失敗 (HTTP ${response.status})\n\n${errorData.error || '未知錯誤'}`);
       }
 
-      // 發布成功
-      // onStatusChange 移至 onPublishComplete 統一處理
+      // 解析回應
+      const data = await response.json();
+      console.log('[PublishLineStep] Backend API response data:', data);
 
+      // 檢查發布結果
+      if (!data.success) {
+        throw new Error(`❌ 發布失敗\n\n${data.error || '未知錯誤'}`);
+      }
+
+      // 收集所有結果
+      const allResults = data.results || [];
+      console.log('[PublishLineStep] ✅ All menus published successfully');
 
       // 更新前端狀態與資料庫
       if (onPublishComplete) {

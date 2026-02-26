@@ -40,6 +40,7 @@ for each row execute function public.set_updated_at();
 
 alter table public.rm_line_channels enable row level security;
 
+-- 前端只能讀取基本資訊，不能讀取 access_token_encrypted
 drop policy if exists rm_line_channels_select_own on public.rm_line_channels;
 create policy rm_line_channels_select_own
 on public.rm_line_channels for select

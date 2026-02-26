@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 
 import FlexPreview from "@/components/FlexPreview";
 import { resolveDocIdToToken, resolveShareToken } from "@/lib/db";
-import { broadcastFlexMessageAuto } from "@/lib/lineMessagingApi";
+import { broadcastFlexMessage } from "@/lib/lineMessagingApi";
 import { hasChannel } from "@/lib/channel";
 
 // 建立分享用的訊息陣列
@@ -308,7 +308,7 @@ export default function Share() {
       validateBeforeShare(contents);
 
       // 發送廣播
-      const result = await broadcastFlexMessageAuto(contents, altText);
+      const result = await broadcastFlexMessage(contents, altText);
 
       if (result.success) {
         setToast({ type: "ok", msg: "已成功廣播給所有好友！" });

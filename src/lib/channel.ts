@@ -3,16 +3,16 @@ import { supabase } from "./supabase";
 export interface LineChannel {
     id: string;
     name: string;
-    accessToken: string;
 }
 
 /**
- * 取得當前用戶的 LINE Channel
+ * 取得當前用戶的 LINE Channel 基本資訊
+ * 注意：不再回傳 accessToken，token 只在後端存取
  */
 export async function getChannel(): Promise<LineChannel | null> {
     const { data, error } = await supabase
-        .from("rm_line_channels")
-        .select("id, name, access_token_encrypted")
+        .from("rm_line_channels_safe")
+        .select("id, name")
         .limit(1)
         .single();
 
@@ -24,7 +24,6 @@ export async function getChannel(): Promise<LineChannel | null> {
     return {
         id: data.id,
         name: data.name,
-        accessToken: data.access_token_encrypted,
     };
 }
 
@@ -33,7 +32,7 @@ export async function getChannel(): Promise<LineChannel | null> {
  */
 export async function hasChannel(): Promise<boolean> {
     const { data, error } = await supabase
-        .from("rm_line_channels")
+        .from("rm_line_channels_safe")
         .select("id")
         .limit(1);
 

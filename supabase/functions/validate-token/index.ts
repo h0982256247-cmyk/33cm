@@ -33,7 +33,7 @@ serve(async (req) => {
                 valid: false,
                 error: "缺少 accessToken 參數"
             }), {
-                status: 400,
+                status: 200, // Always return 200, indicate error in response body
                 headers: { ...corsHeaders, "Content-Type": "application/json" },
             });
         }
@@ -87,7 +87,7 @@ serve(async (req) => {
             valid: false,
             error: `伺服器錯誤: ${errorMessage}`
         }), {
-            status: 500,
+            status: 200, // Always return 200, indicate error in response body
             headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
     }

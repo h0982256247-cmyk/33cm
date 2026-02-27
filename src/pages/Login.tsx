@@ -313,6 +313,23 @@ export default function Login() {
                   </span>
                 ) : "儲存設定"}
               </button>
+
+              {/* 登出按鈕 */}
+              <button
+                type="button"
+                onClick={async () => {
+                  await supabase.auth.signOut();
+                  setStep("auth");
+                }}
+                className="flex w-full justify-center rounded-xl border-2 border-slate-300 px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 hover:border-slate-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-500 transition-all"
+              >
+                <span className="flex items-center gap-2">
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                  </svg>
+                  登出
+                </span>
+              </button>
             </form>
           )}
         </div>

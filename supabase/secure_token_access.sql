@@ -67,24 +67,31 @@ RETURNS TABLE (
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public
-AS $$
+AS $function$
+DECLARE
+    v_name TEXT;
+    v_updated_at TIMESTAMPTZ;
 BEGIN
-    RETURN QUERY
+    -- 直接查詢記錄
     SELECT
-        TRUE AS has_channel,
         c.name,
         c.updated_at
+    INTO v_name, v_updated_at
     FROM public.rm_line_channels c
     WHERE c.user_id = auth.uid()
       AND c.is_active = TRUE
     LIMIT 1;
 
-    -- 如果沒有記錄，回傳 has_channel = false
-    IF NOT FOUND THEN
+    -- 根據是否找到記錄返回結果
+    IF v_name IS NOT NULL THEN
+        -- 找到記錄
+        RETURN QUERY SELECT TRUE, v_name, v_updated_at;
+    ELSE
+        -- 沒有記錄
         RETURN QUERY SELECT FALSE, NULL::TEXT, NULL::TIMESTAMPTZ;
     END IF;
 END;
-$$;
+$function$;
 
 -- 授權 authenticated 用戶執行此 RPC
 GRANT EXECUTE ON FUNCTION public.get_channel_status() TO authenticated;

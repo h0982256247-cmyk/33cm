@@ -19,14 +19,24 @@ export async function getChannel(): Promise<LineChannel | null> {
         return null;
     }
 
+    // 關鍵修復：處理數組返回值
+    const result = Array.isArray(data) ? data[0] : data;
+
+    console.log("[channel] getChannel result:", {
+        hasChannel: result?.has_channel,
+        name: result?.name,
+        updatedAt: result?.updated_at,
+        rawData: data
+    });
+
     // get_channel_status 回傳 { has_channel, name, updated_at }
-    if (!data.has_channel) {
+    if (!result?.has_channel) {
         return null;
     }
 
     return {
         id: "", // RPC 不回傳 id，前端也不需要
-        name: data.name,
+        name: result.name,
     };
 }
 
@@ -49,11 +59,16 @@ export async function hasChannel(): Promise<boolean> {
             return false;
         }
 
-        const hasToken = data?.has_channel === true;
+        // 關鍵修復：RPC 返回的是數組 [{has_channel, name, updated_at}]
+        const result = Array.isArray(data) ? data[0] : data;
+        const hasToken = result?.has_channel === true;
+
         console.log("[channel] hasChannel result:", {
             hasToken,
-            channelName: data?.name || null,
-            updatedAt: data?.updated_at || null
+            channelName: result?.name || null,
+            updatedAt: result?.updated_at || null,
+            rawData: data,
+            isArray: Array.isArray(data)
         });
 
         return hasToken;

@@ -27,9 +27,9 @@ export default function Login() {
 
     const checkSession = async () => {
       try {
-        // 設定 3 秒 timeout (縮短等待時間)
+        // 設定 10 秒 timeout（給予更充裕的時間）
         const timeoutPromise = new Promise((_, reject) =>
-          setTimeout(() => reject(new Error("Connection timeout")), 3000)
+          setTimeout(() => reject(new Error("Connection timeout")), 10000)
         );
 
         const sessionPromise = supabase.auth.getSession();
@@ -49,18 +49,22 @@ export default function Login() {
         }
 
         // 已登入，檢查是否有 Token
-        // 這裡也加上 timeout 保險
+        console.log("[Login] Checking for existing token...");
         const tokenCheckPromise = hasChannel();
         const hasToken = await Promise.race([
           tokenCheckPromise,
-          new Promise((_, r) => setTimeout(() => r(new Error("Token check timeout")), 3000))
+          new Promise((_, r) => setTimeout(() => r(new Error("Token check timeout")), 10000))
         ]) as boolean;
 
         if (!mounted) return;
 
+        console.log("[Login] Token check result:", hasToken);
+
         if (hasToken === true) { // 確保是 boolean true
+          console.log("[Login] ✅ Token found, navigating to /home");
           nav("/home");
         } else {
+          console.log("[Login] ⚠️ No token found, showing token setup");
           setStep("token");
         }
       } catch (err) {
@@ -96,23 +100,29 @@ export default function Login() {
 
       // 登入後檢查 Token（加上 timeout 避免卡住）
       try {
+        console.log("[Login] Auth state changed, checking token...");
         const hasToken = await Promise.race([
           hasChannel(),
           new Promise<boolean>((_, reject) =>
-            setTimeout(() => reject(new Error("Token check timeout")), 3000)
+            setTimeout(() => reject(new Error("Token check timeout")), 10000)
           ),
         ]);
         if (!mounted) return;
 
+        console.log("[Login] onAuthStateChange token result:", hasToken);
+
         if (hasToken) {
+          console.log("[Login] ✅ Token found, navigating to /home");
           nav("/home");
         } else {
+          console.log("[Login] ⚠️ No token, showing setup page");
           setStep("token");
         }
       } catch (err) {
-        console.warn("onAuthStateChange token check failed:", err);
+        console.warn("[Login] onAuthStateChange token check failed:", err);
         if (!mounted) return;
         // 超時或錯誤時，導向首頁讓使用者可以操作，不卡在 loading
+        console.log("[Login] Timeout occurred, showing token setup page");
         setStep("token");
       } finally {
         if (mounted) setLoading(false);

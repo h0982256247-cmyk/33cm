@@ -14,6 +14,20 @@ interface ValidateRequest {
     accessToken: string;
 }
 
+interface ValidateTokenResponse {
+    success: boolean;
+    data?: {
+        valid: boolean;
+        botName?: string;
+        basicId?: string;
+    };
+    error?: {
+        code: string;
+        message: string;
+        details?: unknown;
+    };
+}
+
 serve(async (req) => {
     // CORS preflight
     if (req.method === "OPTIONS") {
@@ -30,10 +44,14 @@ serve(async (req) => {
         if (!accessToken || typeof accessToken !== "string") {
             console.error("[validate-token] ❌ Missing or invalid accessToken");
             return new Response(JSON.stringify({
-                valid: false,
-                error: "缺少 accessToken 參數"
-            }), {
-                status: 200, // Always return 200, indicate error in response body
+                success: false,
+                error: {
+                    code: "INVALID_REQUEST",
+                    message: "缺少 accessToken 參數",
+                    details: "accessToken is required"
+                }
+            } as ValidateTokenResponse), {
+                status: 200,
                 headers: { ...corsHeaders, "Content-Type": "application/json" },
             });
         }
@@ -55,11 +73,23 @@ serve(async (req) => {
             const errorText = await lineResponse.text();
             console.error("[validate-token] ❌ LINE API error:", errorText);
 
+            let errorCode = "INVALID_TOKEN";
+            let errorMessage = "無效的 Token";
+
+            if (lineResponse.status === 401) {
+                errorCode = "INVALID_LINE_TOKEN";
+                errorMessage = "LINE Token 無效或已過期";
+            }
+
             return new Response(JSON.stringify({
-                valid: false,
-                error: `無效的 Token (HTTP ${lineResponse.status})`
-            }), {
-                status: 200, // Return 200 with valid:false
+                success: false,
+                error: {
+                    code: errorCode,
+                    message: errorMessage,
+                    details: { status: lineResponse.status, response: errorText }
+                }
+            } as ValidateTokenResponse), {
+                status: 200,
                 headers: { ...corsHeaders, "Content-Type": "application/json" },
             });
         }
@@ -71,10 +101,13 @@ serve(async (req) => {
         });
 
         return new Response(JSON.stringify({
-            valid: true,
-            botName: data.displayName || data.basicId,
-            basicId: data.basicId
-        }), {
+            success: true,
+            data: {
+                valid: true,
+                botName: data.displayName || data.basicId,
+                basicId: data.basicId
+            }
+        } as ValidateTokenResponse), {
             status: 200,
             headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
@@ -84,10 +117,14 @@ serve(async (req) => {
         const errorMessage = error instanceof Error ? error.message : "Unknown error";
 
         return new Response(JSON.stringify({
-            valid: false,
-            error: `伺服器錯誤: ${errorMessage}`
-        }), {
-            status: 200, // Always return 200, indicate error in response body
+            success: false,
+            error: {
+                code: "UNEXPECTED_ERROR",
+                message: "伺服器錯誤",
+                details: errorMessage
+            }
+        } as ValidateTokenResponse), {
+            status: 200,
             headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
     }

@@ -44,6 +44,7 @@ export default function Login() {
 
         if (!data?.session) {
           setStep("auth");
+          setAuthMsg(null); // 沒有 session 是正常的，清除錯誤訊息
           return;
         }
 
@@ -64,10 +65,14 @@ export default function Login() {
         }
       } catch (err) {
         console.warn("Session check failed or timed out:", err);
-        // 出錯時停留在登入頁，讓用戶可以重試，而不是卡在 loading
+        // 只有在真正的錯誤時才顯示錯誤訊息（例如網路問題）
         if (mounted) {
           setStep("auth");
-          setAuthMsg("連線逾時，請檢查網路或重新登入");
+          // 只在 timeout 或網路錯誤時顯示錯誤訊息
+          const isTimeoutError = err instanceof Error && err.message.includes("timeout");
+          if (isTimeoutError) {
+            setAuthMsg("連線逾時，請檢查網路或重新登入");
+          }
         }
       } finally {
         if (mounted) setLoading(false);
@@ -76,12 +81,16 @@ export default function Login() {
 
     checkSession();
 
-    const { data: sub } = supabase.auth.onAuthStateChange(async (_event, session) => {
+    const { data: sub } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (!mounted) return;
 
       if (!session) {
         setStep("auth");
         setLoading(false);
+        // 登出時清除錯誤訊息
+        if (event === 'SIGNED_OUT') {
+          setAuthMsg(null);
+        }
         return;
       }
 

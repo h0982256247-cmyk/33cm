@@ -147,16 +147,30 @@ export default function Login() {
     setValidating(true);
 
     try {
+      console.log("[Login] 開始驗證 Token...");
+      console.log("[Login] Token 長度:", accessToken.length);
+      console.log("[Login] Token 前 20 字元:", accessToken.substring(0, 20));
+
       // 先驗證 Token 是否有效
       const validation = await validateAccessToken(accessToken);
+
+      console.log("[Login] 驗證結果:", validation);
+
       if (!validation.valid) {
-        setTokenMsg(`Token 驗證失敗: ${validation.error}`);
+        const errorMsg = `Token 驗證失敗: ${validation.error || "未知錯誤"}`;
+        console.error("[Login]", errorMsg);
+        setTokenMsg(errorMsg + "\n\n💡 提示：\n1. 檢查 Token 是否完整複製\n2. 確認是 Channel Access Token（長期）\n3. 到 LINE Developers Console 確認 Token 狀態");
         setValidating(false);
         return;
       }
 
+      console.log("[Login] ✅ Token 驗證成功，Bot 名稱:", validation.botName);
+
       // 儲存到資料庫
+      console.log("[Login] 開始儲存到資料庫...");
       await upsertChannel(channelName, accessToken);
+
+      console.log("[Login] ✅ 儲存成功，導向首頁");
       nav("/home");
     } catch (err: any) {
       const errorMsg = err?.message || "儲存失敗";

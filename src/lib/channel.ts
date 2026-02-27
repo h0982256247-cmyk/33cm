@@ -1,4 +1,5 @@
 import { supabase } from "./supabase";
+import { validateToken } from "./edgeFunction";
 
 export interface LineChannel {
     id: string;
@@ -103,35 +104,37 @@ export async function validateAccessToken(accessToken: string): Promise<{
     error?: string;
 }> {
     try {
-        console.log("[channel] validateAccessToken: Calling Edge Function...");
+        console.log("[channel] validateAccessToken: 開始驗證...");
 
-        const { data, error } = await supabase.functions.invoke("validate-token", {
-            body: { accessToken },
-        });
+        // 使用統一的 Edge Function 介面
+        const result = await validateToken(accessToken);
 
-        if (error) {
-            console.error("[channel] validateAccessToken: Edge Function error:", error);
-            return {
-                valid: false,
-                error: error.message || "驗證服務錯誤",
-            };
-        }
-
-        console.log("[channel] validateAccessToken: Result:", {
-            valid: data.valid,
-            botName: data.botName || null
+        console.log("[channel] validateAccessToken: 驗證結果:", {
+            valid: result.valid,
+            botName: result.botName || null
         });
 
         return {
-            valid: data.valid,
-            botName: data.botName,
-            error: data.error,
+            valid: result.valid,
+            botName: result.botName,
+            error: result.error,
         };
     } catch (err: any) {
-        console.error("[channel] validateAccessToken: Exception:", err);
+        console.error("[channel] validateAccessToken: 驗證失敗:", err);
+
+        // 提供友好的錯誤訊息
+        let errorMessage = "驗證失敗";
+        if (err.message?.includes("INVALID_TOKEN")) {
+            errorMessage = "Token 格式錯誤或無效";
+        } else if (err.message?.includes("Network")) {
+            errorMessage = "網路連線失敗";
+        } else if (err.message) {
+            errorMessage = err.message;
+        }
+
         return {
             valid: false,
-            error: err.message || "網路錯誤",
+            error: errorMessage,
         };
     }
 }

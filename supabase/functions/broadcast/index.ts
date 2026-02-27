@@ -16,6 +16,19 @@ interface BroadcastRequest {
     altText?: string;
 }
 
+interface BroadcastResponse {
+    success: boolean;
+    data?: {
+        messageCount: number;
+        sentAt: string;
+    };
+    error?: {
+        code: string;
+        message: string;
+        details?: unknown;
+    };
+}
+
 serve(async (req) => {
     // CORS preflight
     if (req.method === "OPTIONS") {
@@ -24,79 +37,65 @@ serve(async (req) => {
 
     try {
         console.log("[broadcast] ===== Request Start =====");
-        console.log("[broadcast] Method:", req.method);
-        console.log("[broadcast] URL:", req.url);
 
         // Check Authorization header
         const authHeader = req.headers.get("Authorization");
-        console.log("[broadcast] Authorization header:", authHeader ? `Present (${authHeader.substring(0, 20)}...)` : "MISSING");
-
         if (!authHeader) {
             console.error("[broadcast] ❌ Missing Authorization header");
             return new Response(JSON.stringify({
                 success: false,
-                error: "Missing Authorization header - 請確認已登入"
-            }), {
-                status: 401,
+                error: {
+                    code: "UNAUTHORIZED",
+                    message: "請先登入",
+                    details: "Missing Authorization header"
+                }
+            } as BroadcastResponse), {
+                status: 200, // 統一返回 200
                 headers: { ...corsHeaders, "Content-Type": "application/json" },
             });
         }
-
-        console.log("[broadcast] ✅ Authorization header present");
 
         // Check environment variables
         const supabaseUrl = Deno.env.get("SUPABASE_URL");
         const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY");
-        console.log("[broadcast] SUPABASE_URL:", supabaseUrl ? "✅ Set" : "❌ MISSING");
-        console.log("[broadcast] SUPABASE_ANON_KEY:", supabaseAnonKey ? "✅ Set" : "❌ MISSING");
+        const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
-        if (!supabaseUrl || !supabaseAnonKey) {
+        if (!supabaseUrl || !supabaseAnonKey || !serviceRoleKey) {
             console.error("[broadcast] ❌ Missing environment variables");
             return new Response(JSON.stringify({
                 success: false,
-                error: "Server configuration error - missing environment variables"
-            }), {
-                status: 500,
+                error: {
+                    code: "CONFIG_ERROR",
+                    message: "伺服器配置錯誤",
+                    details: "Missing environment variables"
+                }
+            } as BroadcastResponse), {
+                status: 200,
                 headers: { ...corsHeaders, "Content-Type": "application/json" },
             });
         }
 
-        // Get Supabase client
-        console.log("[broadcast] Creating Supabase client...");
+        // Create Supabase client with user auth
         const supabaseClient = createClient(
             supabaseUrl,
             supabaseAnonKey,
-            {
-                global: { headers: { Authorization: authHeader } },
-            }
+            { global: { headers: { Authorization: authHeader } } }
         );
-        console.log("[broadcast] ✅ Supabase client created");
 
         // Verify user
-        console.log("[broadcast] Verifying user with getUser()...");
         const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
 
-        if (userError) {
-            console.error("[broadcast] ❌ getUser() error:", userError);
-            console.error("[broadcast] Error details:", JSON.stringify(userError, null, 2));
+        if (userError || !user) {
+            console.error("[broadcast] ❌ User verification failed:", userError);
             return new Response(JSON.stringify({
                 success: false,
-                error: "認證失敗 - getUser() error",
-                details: userError?.message
-            }), {
-                status: 401,
-                headers: { ...corsHeaders, "Content-Type": "application/json" },
-            });
-        }
-
-        if (!user) {
-            console.error("[broadcast] ❌ No user returned from getUser()");
-            return new Response(JSON.stringify({
-                success: false,
-                error: "認證失敗 - No user found",
-                details: "getUser() returned null"
-            }), {
-                status: 401,
+                error: {
+                    code: "AUTH_FAILED",
+                    message: "認證失敗",
+                    details: userError?.message || "No user found"
+                }
+            } as BroadcastResponse), {
+                status: 200,
                 headers: { ...corsHeaders, "Content-Type": "application/json" },
             });
         }
@@ -104,11 +103,7 @@ serve(async (req) => {
         console.log("[broadcast] ✅ User verified:", user.id);
 
         // Get LINE token via Service Role (bypasses RLS)
-        console.log("[broadcast] Fetching LINE token...");
-        const supabaseAdmin = createClient(
-            Deno.env.get("SUPABASE_URL") ?? "",
-            Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
-        );
+        const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey);
 
         const { data: channelData, error: tokenError } = await supabaseAdmin
             .from("rm_line_channels")
@@ -117,42 +112,38 @@ serve(async (req) => {
             .eq("is_active", true)
             .single();
 
-        if (tokenError) {
-            console.error("[broadcast] ❌ LINE token fetch error:", tokenError);
+        if (tokenError || !channelData?.access_token_encrypted) {
+            console.error("[broadcast] ❌ LINE token not found:", tokenError);
             return new Response(JSON.stringify({
                 success: false,
-                error: "無法取得 LINE Token",
-                details: tokenError.message
-            }), {
-                status: 400,
-                headers: { ...corsHeaders, "Content-Type": "application/json" },
-            });
-        }
-
-        if (!channelData || !channelData.access_token_encrypted) {
-            console.error("[broadcast] ❌ LINE token not found in database");
-            return new Response(JSON.stringify({
-                success: false,
-                error: "LINE Token 未設定，請先綁定 LINE Channel"
-            }), {
-                status: 400,
+                error: {
+                    code: "TOKEN_NOT_FOUND",
+                    message: "LINE Token 未設定，請先綁定 LINE Channel",
+                    details: tokenError?.message
+                }
+            } as BroadcastResponse), {
+                status: 200,
                 headers: { ...corsHeaders, "Content-Type": "application/json" },
             });
         }
 
         const lineToken = channelData.access_token_encrypted;
-        console.log("[broadcast] ✅ LINE token retrieved, length:", lineToken.length);
+        console.log("[broadcast] ✅ LINE token retrieved");
 
         // Parse request body
-        const body = await req.json();
-        const { flexMessages, altText = "您收到新訊息" }: BroadcastRequest = body;
+        const body: BroadcastRequest = await req.json();
+        const { flexMessages, altText = "您收到新訊息" } = body;
 
         if (!flexMessages || flexMessages.length === 0) {
             return new Response(JSON.stringify({
                 success: false,
-                error: "沒有提供訊息內容"
-            }), {
-                status: 400,
+                error: {
+                    code: "INVALID_REQUEST",
+                    message: "沒有提供訊息內容",
+                    details: "flexMessages is empty"
+                }
+            } as BroadcastResponse), {
+                status: 200,
                 headers: { ...corsHeaders, "Content-Type": "application/json" },
             });
         }
@@ -161,10 +152,13 @@ serve(async (req) => {
         if (flexMessages.length > 5) {
             return new Response(JSON.stringify({
                 success: false,
-                error: "LINE 官方限制：一次最多只能廣播 5 則訊息",
-                provided: flexMessages.length
-            }), {
-                status: 400,
+                error: {
+                    code: "TOO_MANY_MESSAGES",
+                    message: "LINE 官方限制：一次最多只能廣播 5 則訊息",
+                    details: `Provided: ${flexMessages.length}, Maximum: 5`
+                }
+            } as BroadcastResponse), {
+                status: 200,
                 headers: { ...corsHeaders, "Content-Type": "application/json" },
             });
         }
@@ -194,20 +188,47 @@ serve(async (req) => {
         if (!lineResponse.ok) {
             const errorText = await lineResponse.text();
             console.error("[broadcast] ❌ LINE API error:", errorText);
+
+            // 解析 LINE API 錯誤
+            let errorCode = "LINE_API_ERROR";
+            let errorMessage = "LINE API 呼叫失敗";
+
+            if (lineResponse.status === 401) {
+                errorCode = "INVALID_LINE_TOKEN";
+                errorMessage = "LINE Token 無效或已過期";
+            } else if (lineResponse.status === 403) {
+                errorCode = "LINE_API_FORBIDDEN";
+                errorMessage = "沒有權限執行此操作";
+            } else if (lineResponse.status === 429) {
+                errorCode = "RATE_LIMIT_EXCEEDED";
+                errorMessage = "發送頻率過高，請稍後再試";
+            }
+
             return new Response(JSON.stringify({
                 success: false,
-                error: "LINE API 呼叫失敗",
-                details: errorText,
-                lineStatus: lineResponse.status
-            }), {
-                status: lineResponse.status,
+                error: {
+                    code: errorCode,
+                    message: errorMessage,
+                    details: {
+                        status: lineResponse.status,
+                        response: errorText
+                    }
+                }
+            } as BroadcastResponse), {
+                status: 200,
                 headers: { ...corsHeaders, "Content-Type": "application/json" },
             });
         }
 
         console.log("[broadcast] ✅ Broadcast successful");
 
-        return new Response(JSON.stringify({ success: true }), {
+        return new Response(JSON.stringify({
+            success: true,
+            data: {
+                messageCount: flexMessages.length,
+                sentAt: new Date().toISOString()
+            }
+        } as BroadcastResponse), {
             status: 200,
             headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
@@ -215,11 +236,16 @@ serve(async (req) => {
     } catch (error: unknown) {
         console.error("[broadcast] ❌❌❌ Unexpected error:", error);
         const errorMessage = error instanceof Error ? error.message : "Unknown error";
+
         return new Response(JSON.stringify({
             success: false,
-            error: errorMessage,
-        }), {
-            status: 500,
+            error: {
+                code: "UNEXPECTED_ERROR",
+                message: "伺服器錯誤",
+                details: errorMessage
+            }
+        } as BroadcastResponse), {
+            status: 200,
             headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
     }

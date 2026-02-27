@@ -1,3 +1,6 @@
+// 環境變數驗證（必須在最前面）
+import "./lib/env";
+
 import React from "react";
 import ReactDOM from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";

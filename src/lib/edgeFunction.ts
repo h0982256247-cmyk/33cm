@@ -67,9 +67,10 @@ export async function invokeEdgeFunction<T = unknown>(
   });
 
   try {
+    // 調用 Edge Function（Supabase client 會自動傳遞 JWT）
     const { data, error } = await supabase.functions.invoke<EdgeFunctionResponse<T>>(
       functionName,
-      { body }
+      body ? { body: body as Record<string, any> } : undefined
     );
 
     // Supabase client 層面的錯誤（網路錯誤、認證失敗等）

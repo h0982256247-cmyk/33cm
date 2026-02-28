@@ -1,5 +1,4 @@
 import { supabase } from "./supabase";
-import { validateToken } from "./edgeFunction";
 
 export interface LineChannel {
     id: string;
@@ -111,7 +110,7 @@ export async function upsertChannel(name: string, accessToken: string): Promise<
 
 /**
  * 驗證 LINE Channel Access Token 是否有效
- * 透過 Supabase Edge Function 呼叫 LINE API 的 /v2/bot/info 端點驗證
+ * 使用 PostgreSQL RPC 呼叫 LINE API 的 /v2/bot/info 端點驗證（避免 Edge Function JWT 驗證問題）
  */
 export async function validateAccessToken(accessToken: string): Promise<{
     valid: boolean;
@@ -119,37 +118,48 @@ export async function validateAccessToken(accessToken: string): Promise<{
     error?: string;
 }> {
     try {
-        console.log("[channel] validateAccessToken: 開始驗證...");
+        console.log("[channel] validateAccessToken: 開始驗證（使用 RPC）...");
 
-        // 使用統一的 Edge Function 介面
-        const result = await validateToken(accessToken);
-
-        console.log("[channel] validateAccessToken: 驗證結果:", {
-            valid: result.valid,
-            botName: result.botName || null
+        // 調用 PostgreSQL RPC
+        const { data, error } = await supabase.rpc('rm_validate_line_token', {
+            p_access_token: accessToken
         });
 
+        if (error) {
+            console.error("[channel] validateAccessToken: RPC 調用失敗:", error);
+            return {
+                valid: false,
+                error: error.message || "驗證失敗"
+            };
+        }
+
+        // 檢查 RPC 返回的結果
+        if (!data || !data.success) {
+            const errorCode = data?.error?.code || 'UNKNOWN_ERROR';
+            const errorMessage = data?.error?.message || '驗證失敗';
+            console.error("[channel] validateAccessToken: Token 無效");
+            console.error("[channel] 錯誤代碼:", errorCode);
+            console.error("[channel] 錯誤訊息:", errorMessage);
+
+            return {
+                valid: false,
+                error: errorMessage
+            };
+        }
+
+        console.log("[channel] validateAccessToken: ✅ Token 有效");
+        console.log("[channel] Bot 名稱:", data.data.botName);
+
         return {
-            valid: result.valid,
-            botName: result.botName,
-            error: result.error,
+            valid: true,
+            botName: data.data.botName,
         };
     } catch (err: any) {
         console.error("[channel] validateAccessToken: 驗證失敗:", err);
 
-        // 提供友好的錯誤訊息
-        let errorMessage = "驗證失敗";
-        if (err.message?.includes("INVALID_TOKEN")) {
-            errorMessage = "Token 格式錯誤或無效";
-        } else if (err.message?.includes("Network")) {
-            errorMessage = "網路連線失敗";
-        } else if (err.message) {
-            errorMessage = err.message;
-        }
-
         return {
             valid: false,
-            error: errorMessage,
+            error: err.message || "驗證失敗"
         };
     }
 }

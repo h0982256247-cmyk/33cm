@@ -5,8 +5,8 @@ const anon = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
 
 export const supabase = createClient(url || "", anon || "", {
   auth: {
-    persistSession: true,        // 持久化 session 到 localStorage
-    autoRefreshToken: true,       // 自動刷新 token
-    detectSessionInUrl: true,     // 從 URL 檢測 session（用於 OAuth）
+    persistSession: false,        // ❌ 不持久化 session（每次都要重新登入）
+    autoRefreshToken: false,      // ❌ 不自動刷新（因為不保存 session）
+    detectSessionInUrl: true,     // ✅ 仍然從 URL 檢測 session（magic link 需要）
   },
 });

@@ -40,6 +40,14 @@ serve(async (req) => {
 
         // Check Authorization header
         const authHeader = req.headers.get("Authorization");
+        console.log("[broadcast] 🔍 Authorization header exists:", !!authHeader);
+
+        if (authHeader) {
+            // 打印 JWT 的前 20 個字符（用於調試）
+            const tokenPreview = authHeader.substring(0, 27) + "...";
+            console.log("[broadcast] 🔍 Token preview:", tokenPreview);
+        }
+
         if (!authHeader) {
             console.error("[broadcast] ❌ Missing Authorization header");
             return new Response(JSON.stringify({
@@ -76,6 +84,7 @@ serve(async (req) => {
         }
 
         // Create Supabase client with user auth
+        console.log("[broadcast] 🔍 Creating Supabase client...");
         const supabaseClient = createClient(
             supabaseUrl,
             supabaseAnonKey,
@@ -83,16 +92,27 @@ serve(async (req) => {
         );
 
         // Verify user
+        console.log("[broadcast] 🔍 Calling auth.getUser()...");
         const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
 
         if (userError || !user) {
-            console.error("[broadcast] ❌ User verification failed:", userError);
+            console.error("[broadcast] ❌ User verification failed");
+            console.error("[broadcast] 🔍 Error details:", {
+                message: userError?.message,
+                name: userError?.name,
+                status: userError?.status,
+                hasUser: !!user
+            });
             return new Response(JSON.stringify({
                 success: false,
                 error: {
                     code: "AUTH_FAILED",
                     message: "認證失敗",
-                    details: userError?.message || "No user found"
+                    details: {
+                        error: userError?.message || "No user found",
+                        status: userError?.status,
+                        name: userError?.name
+                    }
                 }
             } as BroadcastResponse), {
                 status: 200,
@@ -101,6 +121,7 @@ serve(async (req) => {
         }
 
         console.log("[broadcast] ✅ User verified:", user.id);
+        console.log("[broadcast] 🔍 User email:", user.email);
 
         // Get LINE token via Service Role (bypasses RLS)
         const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey);

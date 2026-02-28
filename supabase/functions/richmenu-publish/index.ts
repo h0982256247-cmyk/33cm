@@ -11,6 +11,8 @@ interface PublishMenuRequest {
 }
 
 serve(async (req) => {
+  console.log('[richmenu-publish] Received request:', req.method);
+
   // CORS headers
   const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
@@ -19,12 +21,15 @@ serve(async (req) => {
 
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
+    console.log('[richmenu-publish] CORS preflight request');
     return new Response('ok', { headers: corsHeaders })
   }
 
   try {
     // 1. 驗證用戶身份
     const authHeader = req.headers.get('Authorization')
+    console.log('[richmenu-publish] Auth header present:', !!authHeader);
+
     if (!authHeader) {
       throw new Error('Missing authorization header')
     }

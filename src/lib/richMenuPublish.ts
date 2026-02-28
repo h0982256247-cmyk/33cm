@@ -33,6 +33,7 @@ export async function publishRichMenus(
 
         // 3. 調用 Edge Function
         const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+        const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
         const edgeFunctionUrl = `${supabaseUrl}/functions/v1/richmenu-publish`;
 
         console.log('[richMenuPublish] Calling Edge Function:', edgeFunctionUrl);
@@ -41,20 +42,32 @@ export async function publishRichMenus(
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${session.access_token}`,
+                'apikey': supabaseAnonKey,
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify(requestData)
         });
 
         if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.error?.message || '發布失敗');
+            let errorMessage = '發布失敗';
+            try {
+                const errorData = await response.json();
+                errorMessage = errorData.error?.message || errorData.message || `HTTP ${response.status}: ${response.statusText}`;
+                console.error('[richMenuPublish] Edge Function error:', errorData);
+            } catch (e) {
+                errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+                console.error('[richMenuPublish] Failed to parse error response:', e);
+            }
+            throw new Error(errorMessage);
         }
 
         const result = await response.json();
+        console.log('[richMenuPublish] Edge Function response:', result);
 
         if (!result.success) {
-            throw new Error(result.error?.message || '發布失敗');
+            const errorMessage = result.error?.message || '發布失敗';
+            console.error('[richMenuPublish] Publish failed:', result.error);
+            throw new Error(errorMessage);
         }
 
         console.log('[richMenuPublish] ✅ All menus published successfully');

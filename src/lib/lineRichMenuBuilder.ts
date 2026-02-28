@@ -229,9 +229,10 @@ export interface PublishRequest {
     aliasId: string;
     isMain: boolean;
   }>;
+  cleanOldMenus?: boolean;
 }
 
-export function buildPublishRequest(menus: RichMenu[]): PublishRequest {
+export function buildPublishRequest(menus: RichMenu[], cleanOldMenus = true): PublishRequest {
   return {
     menus: menus.map(menu => ({
       menuData: buildLineRichMenuPayload(menu, menus),
@@ -240,5 +241,6 @@ export function buildPublishRequest(menus: RichMenu[]): PublishRequest {
       aliasId: menu.id.replace(/-/g, ''),
       isMain: menu.isMain,
     })),
+    cleanOldMenus,
   };
 }

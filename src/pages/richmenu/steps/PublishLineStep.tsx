@@ -70,43 +70,52 @@ export const PublishLineStep: React.FC<PublishLineStepProps> = ({ menus, onReset
       }
 
       // 建立完整的 Publish Request 資料
-      const fullPublishRequest = buildPublishRequest(menus);
+      const publishData = buildPublishRequest(menus);
 
-      console.log('[PublishLineStep] Calling backend API with all menus...');
+      console.log('[PublishLineStep] Calling PostgreSQL RPC with all menus...');
+      console.log('[PublishLineStep] Publishing', publishData.menus.length, 'menus');
 
-      // 呼叫後端 API 一次發布所有選單
-      const response = await fetch('/api/line/richmenu/publish', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify({
-          menus: fullPublishRequest.menus
-        }),
+      // 呼叫 PostgreSQL RPC 一次發布所有選單
+      const { data, error } = await supabase.rpc('rm_publish_richmenu', {
+        p_menus: publishData.menus,
+        p_clean_old_menus: publishData.cleanOldMenus || false
       });
 
-      console.log('[PublishLineStep] Backend API response status:', response.status);
+      console.log('[PublishLineStep] RPC response:', { data, error });
 
-      // 檢查 HTTP 狀態
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        console.error('[PublishLineStep] Backend API error:', errorData);
-        throw new Error(`❌ 發布失敗 (HTTP ${response.status})\n\n${errorData.error || '未知錯誤'}`);
+      // 檢查 RPC 調用錯誤
+      if (error) {
+        console.error('[PublishLineStep] RPC 調用失敗:', error);
+        throw new Error(`❌ 發布失敗\n\nRPC 調用錯誤: ${error.message || '未知錯誤'}`);
       }
 
-      // 解析回應
-      const data = await response.json();
-      console.log('[PublishLineStep] Backend API response data:', data);
+      // 檢查 RPC 返回的業務邏輯錯誤
+      if (!data || !data.success) {
+        const errorCode = data?.error?.code || 'UNKNOWN_ERROR';
+        const errorMessage = data?.error?.message || '發布失敗';
 
-      // 檢查發布結果
-      if (!data.success) {
-        throw new Error(`❌ 發布失敗\n\n${data.error || '未知錯誤'}`);
+        console.error('[PublishLineStep] 發布失敗');
+        console.error('[PublishLineStep] 錯誤代碼:', errorCode);
+        console.error('[PublishLineStep] 錯誤訊息:', errorMessage);
+        console.error('[PublishLineStep] 錯誤詳情:', data?.error?.details);
+
+        // 提供友好的錯誤訊息
+        let friendlyMessage = errorMessage;
+        if (errorCode === 'TOKEN_NOT_FOUND') {
+          friendlyMessage = 'LINE Token 未設定，請先綁定 LINE Channel';
+        } else if (errorCode === 'LINE_API_ERROR') {
+          friendlyMessage = 'LINE API 調用失敗，請檢查 Token 是否有效';
+        } else if (errorCode === 'IMAGE_UPLOAD_FAILED') {
+          friendlyMessage = '圖片上傳失敗，請檢查圖片格式和大小';
+        }
+
+        throw new Error(`❌ 發布失敗\n\n${friendlyMessage}`);
       }
 
       // 收集所有結果
-      const allResults = data.results || [];
+      const allResults = data.data?.results || [];
       console.log('[PublishLineStep] ✅ All menus published successfully');
+      console.log('[PublishLineStep] Published at:', data.data?.publishedAt);
 
       // 更新前端狀態與資料庫
       if (onPublishComplete) {
@@ -162,43 +171,43 @@ export const PublishLineStep: React.FC<PublishLineStepProps> = ({ menus, onReset
 
       const { supabase } = await import('@/lib/supabase');
 
-      // Session Guard: 確保有效的 auth session
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-      if (sessionError || !session) {
-        throw new Error('登入狀態已過期，請重新整理頁面並重新登入');
-      }
+      console.log('[PublishLineStep] Calling PostgreSQL RPC for scheduled publish...');
 
-      // 檢查 token 是否即將過期（30秒內）
-      const expiresAt = session.expires_at ? session.expires_at * 1000 : 0;
-      const now = Date.now();
-      if (expiresAt - now < 30000) {
-        console.log('[PublishLineStep] Token expiring soon, refreshing...');
-        const { data: { session: newSession }, error: refreshError } = await supabase.auth.refreshSession();
-        if (refreshError || !newSession) {
-          throw new Error('無法刷新登入狀態，請重新登入');
-        }
-      }
-
-      // supabase.functions.invoke automatically includes auth token
-      const response = await supabase.functions.invoke('publish-richmenu', {
-        body: publishData
+      // 呼叫 PostgreSQL RPC
+      const { data, error } = await supabase.rpc('rm_publish_richmenu', {
+        p_menus: publishData.menus,
+        p_clean_old_menus: publishData.cleanOldMenus || false
       });
 
-      if (response.error) {
-        // 特別處理 401 錯誤
-        if (response.error.message?.includes('session') || response.error.message?.includes('Auth')) {
-          throw new Error(`認證失敗，請重新整理頁面並重新登入。詳細錯誤: ${response.error.message}`);
-        }
-        throw new Error(response.error.message || '發布失敗');
+      console.log('[PublishLineStep] RPC response:', { data, error });
+
+      // 檢查 RPC 調用錯誤
+      if (error) {
+        console.error('[PublishLineStep] RPC 調用失敗:', error);
+        throw new Error(`❌ 排程發布失敗\n\nRPC 調用錯誤: ${error.message || '未知錯誤'}`);
       }
 
-      if (!response.data?.success) {
-        const errorMsg = response.data?.error || '未知錯誤';
-        if (errorMsg.includes('session') || errorMsg.includes('Auth') || errorMsg.includes('認證')) {
-          throw new Error(`認證失敗，請重新整理頁面並重新登入。詳細錯誤: ${errorMsg}`);
+      // 檢查 RPC 返回的業務邏輯錯誤
+      if (!data || !data.success) {
+        const errorCode = data?.error?.code || 'UNKNOWN_ERROR';
+        const errorMessage = data?.error?.message || '排程發布失敗';
+
+        console.error('[PublishLineStep] 排程發布失敗');
+        console.error('[PublishLineStep] 錯誤代碼:', errorCode);
+        console.error('[PublishLineStep] 錯誤訊息:', errorMessage);
+
+        // 提供友好的錯誤訊息
+        let friendlyMessage = errorMessage;
+        if (errorCode === 'TOKEN_NOT_FOUND') {
+          friendlyMessage = 'LINE Token 未設定，請先綁定 LINE Channel';
+        } else if (errorCode === 'LINE_API_ERROR') {
+          friendlyMessage = 'LINE API 調用失敗，請檢查 Token 是否有效';
         }
-        throw new Error(errorMsg);
+
+        throw new Error(`❌ 排程發布失敗\n\n${friendlyMessage}`);
       }
+
+      console.log('[PublishLineStep] ✅ Scheduled publish successful');
 
       // 發布成功,記錄排程時間
       if (mainMenu) {

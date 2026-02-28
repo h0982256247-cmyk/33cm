@@ -27,7 +27,7 @@ export const PublishLineStep: React.FC<PublishLineStepProps> = ({ menus, onReset
       // Auto-save draft before publishing
       await onSaveDraft();
 
-      const { buildPublishRequest, validateImageFileSize, validateHotspotCount, validateAliasId } = await import('@/lib/lineRichMenuBuilder');
+      const { validateImageFileSize, validateHotspotCount, validateAliasId } = await import('@/lib/lineRichMenuBuilder');
       const { supabase } = await import('@/lib/supabase');
 
       // 驗證 Rich Menu 規範（LINE 官方限制）
@@ -69,76 +69,15 @@ export const PublishLineStep: React.FC<PublishLineStepProps> = ({ menus, onReset
         }
       }
 
-      // 建立完整的 Publish Request 資料
-      const publishData = buildPublishRequest(menus);
+      // 使用新的前端發布服務（避免 pgsql-http API 限制）
+      const { publishRichMenus } = await import('@/lib/richMenuPublish');
 
-      console.log('[PublishLineStep] Calling PostgreSQL RPC with all menus...');
-      console.log('[PublishLineStep] Publishing', publishData.menus.length, 'menus');
+      console.log('[PublishLineStep] Publishing menus via direct LINE API...');
+      console.log('[PublishLineStep] Publishing', menus.length, 'menus');
 
-      // 呼叫 PostgreSQL RPC 一次發布所有選單
-      const { data, error } = await supabase.rpc('rm_publish_richmenu', {
-        p_menus: publishData.menus,
-        p_clean_old_menus: publishData.cleanOldMenus || false
-      });
-
-      console.log('[PublishLineStep] RPC response:', { data, error });
-
-      // 檢查 RPC 調用錯誤
-      if (error) {
-        console.error('[PublishLineStep] RPC 調用失敗:', error);
-        console.error('[PublishLineStep] Error details:', {
-          message: error.message,
-          details: error.details,
-          hint: error.hint,
-          code: error.code
-        });
-
-        const errorDetails = [
-          `錯誤訊息: ${error.message || '未知錯誤'}`,
-          error.details ? `詳細資訊: ${error.details}` : '',
-          error.hint ? `提示: ${error.hint}` : '',
-          error.code ? `錯誤代碼: ${error.code}` : ''
-        ].filter(Boolean).join('\n');
-
-        throw new Error(`❌ 發布失敗 - RPC 調用錯誤\n\n${errorDetails}`);
-      }
-
-      // 檢查 RPC 返回的業務邏輯錯誤
-      if (!data || !data.success) {
-        const errorCode = data?.error?.code || 'UNKNOWN_ERROR';
-        const errorMessage = data?.error?.message || '發布失敗';
-        const errorDetails = data?.error?.details;
-
-        console.error('[PublishLineStep] 發布失敗');
-        console.error('[PublishLineStep] 錯誤代碼:', errorCode);
-        console.error('[PublishLineStep] 錯誤訊息:', errorMessage);
-        console.error('[PublishLineStep] 錯誤詳情:', errorDetails);
-
-        // 提供友好的錯誤訊息
-        let friendlyMessage = errorMessage;
-        let technicalDetails = '';
-
-        if (errorCode === 'TOKEN_NOT_FOUND') {
-          friendlyMessage = 'LINE Token 未設定，請先綁定 LINE Channel';
-        } else if (errorCode === 'LINE_API_ERROR') {
-          friendlyMessage = 'LINE API 調用失敗，請檢查 Token 是否有效';
-          technicalDetails = errorDetails ? `\n\n技術細節:\n${JSON.stringify(errorDetails, null, 2)}` : '';
-        } else if (errorCode === 'IMAGE_UPLOAD_FAILED') {
-          friendlyMessage = '圖片上傳失敗，請檢查圖片格式和大小';
-          technicalDetails = errorDetails ? `\n\n技術細節:\n${JSON.stringify(errorDetails, null, 2)}` : '';
-        } else if (errorCode === 'UNEXPECTED_ERROR') {
-          // 這通常是 PostgreSQL 錯誤，顯示完整的技術細節
-          friendlyMessage = '發布過程中發生系統錯誤';
-          technicalDetails = errorDetails ? `\n\n技術細節:\n${typeof errorDetails === 'string' ? errorDetails : JSON.stringify(errorDetails, null, 2)}` : '';
-        }
-
-        throw new Error(`❌ 發布失敗\n\n${friendlyMessage}${technicalDetails}`);
-      }
-
-      // 收集所有結果
-      const allResults = data.data?.results || [];
+      // 直接調用 LINE API 發布
+      const allResults = await publishRichMenus(menus, true);
       console.log('[PublishLineStep] ✅ All menus published successfully');
-      console.log('[PublishLineStep] Published at:', data.data?.publishedAt);
 
       // 更新前端狀態與資料庫
       if (onPublishComplete) {
@@ -167,7 +106,7 @@ export const PublishLineStep: React.FC<PublishLineStepProps> = ({ menus, onReset
 
       // 注意: 排程功能需要額外的後端支援 (例如 cron job)
       // 這裡先直接發布,並記錄排程時間
-      const { buildPublishRequest, validateImageFileSize, validateHotspotCount, validateAliasId } = await import('@/lib/lineRichMenuBuilder');
+      const { validateImageFileSize, validateHotspotCount, validateAliasId } = await import('@/lib/lineRichMenuBuilder');
 
       // 驗證 Rich Menu 規範（LINE 官方限制）
       for (const menu of menus) {
@@ -190,70 +129,13 @@ export const PublishLineStep: React.FC<PublishLineStepProps> = ({ menus, onReset
         }
       }
 
-      const publishData = buildPublishRequest(menus);
+      // 使用新的前端發布服務（避免 pgsql-http API 限制）
+      const { publishRichMenus } = await import('@/lib/richMenuPublish');
 
-      const { supabase } = await import('@/lib/supabase');
+      console.log('[PublishLineStep] Publishing menus for scheduled release...');
 
-      console.log('[PublishLineStep] Calling PostgreSQL RPC for scheduled publish...');
-
-      // 呼叫 PostgreSQL RPC
-      const { data, error } = await supabase.rpc('rm_publish_richmenu', {
-        p_menus: publishData.menus,
-        p_clean_old_menus: publishData.cleanOldMenus || false
-      });
-
-      console.log('[PublishLineStep] RPC response:', { data, error });
-
-      // 檢查 RPC 調用錯誤
-      if (error) {
-        console.error('[PublishLineStep] RPC 調用失敗:', error);
-        console.error('[PublishLineStep] Error details:', {
-          message: error.message,
-          details: error.details,
-          hint: error.hint,
-          code: error.code
-        });
-
-        const errorDetails = [
-          `錯誤訊息: ${error.message || '未知錯誤'}`,
-          error.details ? `詳細資訊: ${error.details}` : '',
-          error.hint ? `提示: ${error.hint}` : '',
-          error.code ? `錯誤代碼: ${error.code}` : ''
-        ].filter(Boolean).join('\n');
-
-        throw new Error(`❌ 排程發布失敗 - RPC 調用錯誤\n\n${errorDetails}`);
-      }
-
-      // 檢查 RPC 返回的業務邏輯錯誤
-      if (!data || !data.success) {
-        const errorCode = data?.error?.code || 'UNKNOWN_ERROR';
-        const errorMessage = data?.error?.message || '排程發布失敗';
-        const errorDetails = data?.error?.details;
-
-        console.error('[PublishLineStep] 排程發布失敗');
-        console.error('[PublishLineStep] 錯誤代碼:', errorCode);
-        console.error('[PublishLineStep] 錯誤訊息:', errorMessage);
-        console.error('[PublishLineStep] 錯誤詳情:', errorDetails);
-
-        // 提供友好的錯誤訊息
-        let friendlyMessage = errorMessage;
-        let technicalDetails = '';
-
-        if (errorCode === 'TOKEN_NOT_FOUND') {
-          friendlyMessage = 'LINE Token 未設定，請先綁定 LINE Channel';
-        } else if (errorCode === 'LINE_API_ERROR') {
-          friendlyMessage = 'LINE API 調用失敗，請檢查 Token 是否有效';
-          technicalDetails = errorDetails ? `\n\n技術細節:\n${JSON.stringify(errorDetails, null, 2)}` : '';
-        } else if (errorCode === 'IMAGE_UPLOAD_FAILED') {
-          friendlyMessage = '圖片上傳失敗，請檢查圖片格式和大小';
-          technicalDetails = errorDetails ? `\n\n技術細節:\n${JSON.stringify(errorDetails, null, 2)}` : '';
-        } else if (errorCode === 'UNEXPECTED_ERROR') {
-          friendlyMessage = '排程發布過程中發生系統錯誤';
-          technicalDetails = errorDetails ? `\n\n技術細節:\n${typeof errorDetails === 'string' ? errorDetails : JSON.stringify(errorDetails, null, 2)}` : '';
-        }
-
-        throw new Error(`❌ 排程發布失敗\n\n${friendlyMessage}${technicalDetails}`);
-      }
+      // 直接調用 LINE API 發布
+      await publishRichMenus(menus, true);
 
       console.log('[PublishLineStep] ✅ Scheduled publish successful');
 

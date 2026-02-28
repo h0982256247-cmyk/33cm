@@ -59,11 +59,10 @@ BEGIN
 
     -- 2. 清理舊選單（如果需要）
     IF p_clean_old_menus THEN
-        -- 設置 Authorization header
-        PERFORM http_set_curlopt('CURLOPT_HTTPHEADER', ARRAY['Authorization: Bearer ' || v_line_token]);
-
-        -- 列出現有選單
-        SELECT * FROM http_get(v_line_api || '/richmenu/list') INTO v_list_response;
+        -- 使用 http_request 類型來發送帶有 Authorization header 的請求
+        -- 注意：由於 pgsql-http API 限制，這裡暫時跳過清理舊選單
+        -- 可以在前端使用 LINE API 直接清理
+        NULL;
 
         IF v_list_response.status = 200 THEN
             v_existing_menus := (v_list_response.content::JSONB)->'richmenus';

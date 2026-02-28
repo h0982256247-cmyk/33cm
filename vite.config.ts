@@ -31,12 +31,7 @@ export default defineConfig({
       }
     },
 
-    // 最小化配置
-    minify: 'terser',
-    terserOptions: {
-      compress: {
-        drop_console: false  // 保留 console.log（開發時有用）
-      }
-    }
+    // 使用 esbuild 最小化（Vite 5 預設，更快）
+    minify: 'esbuild'
   }
 });

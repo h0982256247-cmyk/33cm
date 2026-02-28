@@ -34,9 +34,20 @@ serve(async (req) => {
       throw new Error('Missing authorization header')
     }
 
+    // 獲取環境變數（包含 service role key）
+    const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
+    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY') ?? '';
+    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+
+    if (!serviceRoleKey) {
+      console.error('[richmenu-publish] Missing SERVICE_ROLE_KEY');
+      throw new Error('Server configuration error');
+    }
+
+    // 驗證用戶（使用 anon key + JWT）
     const supabase = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+      supabaseUrl,
+      supabaseAnonKey,
       {
         global: {
           headers: { Authorization: authHeader },
@@ -47,6 +58,7 @@ serve(async (req) => {
     // 驗證 JWT 並獲取用戶
     const { data: { user }, error: userError } = await supabase.auth.getUser()
     if (userError || !user) {
+      console.error('[richmenu-publish] Auth failed:', userError);
       throw new Error('Unauthorized')
     }
 
@@ -56,7 +68,10 @@ serve(async (req) => {
     const { menus, cleanOldMenus } = await req.json()
 
     // 3. 從資料庫獲取 LINE Access Token
-    const { data: channelData, error: channelError } = await supabase
+    // ✅ 關鍵修復：使用 service role client 繞過 RLS
+    const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey);
+
+    const { data: channelData, error: channelError } = await supabaseAdmin
       .from('rm_line_channels')
       .select('access_token_encrypted')
       .eq('user_id', user.id)
@@ -64,10 +79,12 @@ serve(async (req) => {
       .single()
 
     if (channelError || !channelData) {
+      console.error('[richmenu-publish] Token fetch error:', channelError);
       throw new Error('LINE Token not found')
     }
 
     const lineToken = channelData.access_token_encrypted
+    console.log('[richmenu-publish] LINE token retrieved successfully');
 
     // 4. 清理舊選單（如果需要）
     if (cleanOldMenus) {

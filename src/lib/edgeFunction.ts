@@ -204,3 +204,28 @@ export async function publishRichMenu(
 ): Promise<PublishRichMenuResult> {
   return invokeEdgeFunction<PublishRichMenuResult>('publish-richmenu', request);
 }
+
+// richmenu-publish (batch publishing)
+/**
+ * Rich Menu 批量發布請求
+ */
+export interface RichMenuPublishRequest {
+  menus: Array<{
+    menuData: any;  // LINE Rich Menu Payload
+    imageBase64: string | null;
+    aliasId: string;
+    isMain: boolean;
+  }>;
+  cleanOldMenus?: boolean;
+}
+
+/**
+ * Rich Menu 批量發布回應
+ */
+export interface RichMenuPublishResponse {
+  results: Array<{
+    aliasId: string;
+    richMenuId: string;
+  }>;
+  publishedAt: string;
+}

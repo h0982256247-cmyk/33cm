@@ -1,4 +1,4 @@
-import { supabase } from '@/lib/supabase';
+import { invokeEdgeFunction, RichMenuPublishResponse } from '@/lib/edgeFunction';
 import { RichMenu } from '@/lib/richmenuTypes';
 import { buildLineRichMenuPayload } from '@/lib/lineRichMenuBuilder';
 
@@ -10,71 +10,37 @@ export async function publishRichMenus(
     menus: RichMenu[],
     cleanOld: boolean = true
 ): Promise<{ aliasId: string; richMenuId: string }[]> {
+    console.log('[richMenuPublish] Publishing', menus.length, 'menus via Edge Function...');
+
+    // 準備請求數據
+    const requestData = {
+        menus: menus.map(menu => ({
+            menuData: buildLineRichMenuPayload(menu, menus),
+            imageBase64: menu.imageData,
+            aliasId: menu.id.replace(/-/g, ''),
+            isMain: menu.isMain
+        })),
+        cleanOldMenus: cleanOld
+    };
+
     try {
-        console.log('[richMenuPublish] Publishing', menus.length, 'menus via Edge Function...');
-
-        // 1. 獲取當前用戶的 session token
-        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-
-        if (sessionError || !session) {
-            throw new Error('請先登入以發布選單');
-        }
-
-        // 2. 準備請求數據
-        const requestData = {
-            menus: menus.map(menu => ({
-                menuData: buildLineRichMenuPayload(menu, menus),
-                imageBase64: menu.imageData,
-                aliasId: menu.id.replace(/-/g, ''),
-                isMain: menu.isMain
-            })),
-            cleanOldMenus: cleanOld
-        };
-
-        // 3. 調用 Edge Function
-        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-        const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-        const edgeFunctionUrl = `${supabaseUrl}/functions/v1/richmenu-publish`;
-
-        console.log('[richMenuPublish] Calling Edge Function:', edgeFunctionUrl);
-
-        const response = await fetch(edgeFunctionUrl, {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${session.access_token}`,
-                'apikey': supabaseAnonKey,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(requestData)
-        });
-
-        if (!response.ok) {
-            let errorMessage = '發布失敗';
-            try {
-                const errorData = await response.json();
-                errorMessage = errorData.error?.message || errorData.message || `HTTP ${response.status}: ${response.statusText}`;
-                console.error('[richMenuPublish] Edge Function error:', errorData);
-            } catch (e) {
-                errorMessage = `HTTP ${response.status}: ${response.statusText}`;
-                console.error('[richMenuPublish] Failed to parse error response:', e);
-            }
-            throw new Error(errorMessage);
-        }
-
-        const result = await response.json();
-        console.log('[richMenuPublish] Edge Function response:', result);
-
-        if (!result.success) {
-            const errorMessage = result.error?.message || '發布失敗';
-            console.error('[richMenuPublish] Publish failed:', result.error);
-            throw new Error(errorMessage);
-        }
+        // 使用統一的 Edge Function 調用模式
+        // Supabase SDK 會自動處理 JWT token 和 apikey header
+        const result = await invokeEdgeFunction<RichMenuPublishResponse>(
+            'richmenu-publish',
+            requestData
+        );
 
         console.log('[richMenuPublish] ✅ All menus published successfully');
-        return result.data.results;
+        return result.results;
 
     } catch (error: any) {
         console.error('[richMenuPublish] ❌ Publish failed:', error);
-        throw error;
+
+        // 提供更詳細的錯誤訊息
+        if (error.message) {
+            throw new Error(error.message);
+        }
+        throw new Error('發布失敗，請檢查網路連線和 LINE Token 設定');
     }
 }

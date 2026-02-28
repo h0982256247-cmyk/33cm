@@ -39,9 +39,33 @@ serve(async (req) => {
     const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY') ?? '';
     const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 
+    // 詳細的環境變數檢查
+    console.log('[richmenu-publish] Environment check:', {
+      hasUrl: !!supabaseUrl,
+      hasAnonKey: !!supabaseAnonKey,
+      hasServiceKey: !!serviceRoleKey,
+      urlPrefix: supabaseUrl?.substring(0, 20) + '...'
+    });
+
     if (!serviceRoleKey) {
-      console.error('[richmenu-publish] Missing SERVICE_ROLE_KEY');
-      throw new Error('Server configuration error');
+      console.error('[richmenu-publish] ❌ CRITICAL: Missing SERVICE_ROLE_KEY');
+      console.error('[richmenu-publish] Please set it using: supabase secrets set SUPABASE_SERVICE_ROLE_KEY=<key>');
+
+      // ✅ 返回 200 而不是拋出錯誤
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: {
+            code: 'CONFIG_ERROR',
+            message: '伺服器配置錯誤：缺少 SERVICE_ROLE_KEY',
+            details: 'Edge Function secret SUPABASE_SERVICE_ROLE_KEY is not configured. Please contact administrator.'
+          }
+        }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 200
+        }
+      );
     }
 
     // 驗證用戶（使用 anon key + JWT）
@@ -221,17 +245,26 @@ serve(async (req) => {
   } catch (error: any) {
     console.error('[richmenu-publish] Error:', error)
 
+    // 詳細的錯誤日誌
+    console.error('[richmenu-publish] Error details:', {
+      message: error.message,
+      stack: error.stack,
+      name: error.name
+    })
+
+    // ✅ 關鍵修復：總是返回 200，錯誤信息放在 JSON body
     return new Response(
       JSON.stringify({
         success: false,
         error: {
           code: 'PUBLISH_ERROR',
-          message: error.message || 'Failed to publish Rich Menu'
+          message: error.message || 'Failed to publish Rich Menu',
+          details: error.stack || null
         }
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 400
+        status: 200  // ✅ 改為 200（之前是 400）
       }
     )
   }

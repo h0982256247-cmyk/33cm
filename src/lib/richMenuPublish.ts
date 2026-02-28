@@ -38,9 +38,18 @@ export async function publishRichMenus(
         console.error('[richMenuPublish] ❌ Publish failed:', error);
 
         // 提供更詳細的錯誤訊息
-        if (error.message) {
-            throw new Error(error.message);
+        let errorMessage = '發布失敗';
+
+        if (error instanceof Error) {
+            // EdgeFunctionError 會有 message
+            errorMessage = error.message;
+
+            // 如果是配置錯誤，提供管理員提示
+            if (error.message.includes('SERVICE_ROLE_KEY') || error.message.includes('配置錯誤')) {
+                errorMessage += '\n\n請聯繫系統管理員設定 Edge Function secrets。';
+            }
         }
-        throw new Error('發布失敗，請檢查網路連線和 LINE Token 設定');
+
+        throw new Error(errorMessage);
     }
 }

@@ -86,30 +86,53 @@ export const PublishLineStep: React.FC<PublishLineStepProps> = ({ menus, onReset
       // 檢查 RPC 調用錯誤
       if (error) {
         console.error('[PublishLineStep] RPC 調用失敗:', error);
-        throw new Error(`❌ 發布失敗\n\nRPC 調用錯誤: ${error.message || '未知錯誤'}`);
+        console.error('[PublishLineStep] Error details:', {
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code
+        });
+
+        const errorDetails = [
+          `錯誤訊息: ${error.message || '未知錯誤'}`,
+          error.details ? `詳細資訊: ${error.details}` : '',
+          error.hint ? `提示: ${error.hint}` : '',
+          error.code ? `錯誤代碼: ${error.code}` : ''
+        ].filter(Boolean).join('\n');
+
+        throw new Error(`❌ 發布失敗 - RPC 調用錯誤\n\n${errorDetails}`);
       }
 
       // 檢查 RPC 返回的業務邏輯錯誤
       if (!data || !data.success) {
         const errorCode = data?.error?.code || 'UNKNOWN_ERROR';
         const errorMessage = data?.error?.message || '發布失敗';
+        const errorDetails = data?.error?.details;
 
         console.error('[PublishLineStep] 發布失敗');
         console.error('[PublishLineStep] 錯誤代碼:', errorCode);
         console.error('[PublishLineStep] 錯誤訊息:', errorMessage);
-        console.error('[PublishLineStep] 錯誤詳情:', data?.error?.details);
+        console.error('[PublishLineStep] 錯誤詳情:', errorDetails);
 
         // 提供友好的錯誤訊息
         let friendlyMessage = errorMessage;
+        let technicalDetails = '';
+
         if (errorCode === 'TOKEN_NOT_FOUND') {
           friendlyMessage = 'LINE Token 未設定，請先綁定 LINE Channel';
         } else if (errorCode === 'LINE_API_ERROR') {
           friendlyMessage = 'LINE API 調用失敗，請檢查 Token 是否有效';
+          technicalDetails = errorDetails ? `\n\n技術細節:\n${JSON.stringify(errorDetails, null, 2)}` : '';
         } else if (errorCode === 'IMAGE_UPLOAD_FAILED') {
           friendlyMessage = '圖片上傳失敗，請檢查圖片格式和大小';
+          technicalDetails = errorDetails ? `\n\n技術細節:\n${JSON.stringify(errorDetails, null, 2)}` : '';
+        } else if (errorCode === 'UNEXPECTED_ERROR') {
+          // 這通常是 PostgreSQL 錯誤，顯示完整的技術細節
+          friendlyMessage = '發布過程中發生系統錯誤';
+          technicalDetails = errorDetails ? `\n\n技術細節:\n${typeof errorDetails === 'string' ? errorDetails : JSON.stringify(errorDetails, null, 2)}` : '';
         }
 
-        throw new Error(`❌ 發布失敗\n\n${friendlyMessage}`);
+        throw new Error(`❌ 發布失敗\n\n${friendlyMessage}${technicalDetails}`);
       }
 
       // 收集所有結果
@@ -184,27 +207,52 @@ export const PublishLineStep: React.FC<PublishLineStepProps> = ({ menus, onReset
       // 檢查 RPC 調用錯誤
       if (error) {
         console.error('[PublishLineStep] RPC 調用失敗:', error);
-        throw new Error(`❌ 排程發布失敗\n\nRPC 調用錯誤: ${error.message || '未知錯誤'}`);
+        console.error('[PublishLineStep] Error details:', {
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code
+        });
+
+        const errorDetails = [
+          `錯誤訊息: ${error.message || '未知錯誤'}`,
+          error.details ? `詳細資訊: ${error.details}` : '',
+          error.hint ? `提示: ${error.hint}` : '',
+          error.code ? `錯誤代碼: ${error.code}` : ''
+        ].filter(Boolean).join('\n');
+
+        throw new Error(`❌ 排程發布失敗 - RPC 調用錯誤\n\n${errorDetails}`);
       }
 
       // 檢查 RPC 返回的業務邏輯錯誤
       if (!data || !data.success) {
         const errorCode = data?.error?.code || 'UNKNOWN_ERROR';
         const errorMessage = data?.error?.message || '排程發布失敗';
+        const errorDetails = data?.error?.details;
 
         console.error('[PublishLineStep] 排程發布失敗');
         console.error('[PublishLineStep] 錯誤代碼:', errorCode);
         console.error('[PublishLineStep] 錯誤訊息:', errorMessage);
+        console.error('[PublishLineStep] 錯誤詳情:', errorDetails);
 
         // 提供友好的錯誤訊息
         let friendlyMessage = errorMessage;
+        let technicalDetails = '';
+
         if (errorCode === 'TOKEN_NOT_FOUND') {
           friendlyMessage = 'LINE Token 未設定，請先綁定 LINE Channel';
         } else if (errorCode === 'LINE_API_ERROR') {
           friendlyMessage = 'LINE API 調用失敗，請檢查 Token 是否有效';
+          technicalDetails = errorDetails ? `\n\n技術細節:\n${JSON.stringify(errorDetails, null, 2)}` : '';
+        } else if (errorCode === 'IMAGE_UPLOAD_FAILED') {
+          friendlyMessage = '圖片上傳失敗，請檢查圖片格式和大小';
+          technicalDetails = errorDetails ? `\n\n技術細節:\n${JSON.stringify(errorDetails, null, 2)}` : '';
+        } else if (errorCode === 'UNEXPECTED_ERROR') {
+          friendlyMessage = '排程發布過程中發生系統錯誤';
+          technicalDetails = errorDetails ? `\n\n技術細節:\n${typeof errorDetails === 'string' ? errorDetails : JSON.stringify(errorDetails, null, 2)}` : '';
         }
 
-        throw new Error(`❌ 排程發布失敗\n\n${friendlyMessage}`);
+        throw new Error(`❌ 排程發布失敗\n\n${friendlyMessage}${technicalDetails}`);
       }
 
       console.log('[PublishLineStep] ✅ Scheduled publish successful');

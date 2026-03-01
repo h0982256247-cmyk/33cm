@@ -86,10 +86,25 @@ export async function invokeEdgeFunction<T = unknown>(
 
   if (sessionError) {
     console.error(`[EdgeFunction] ❌ Session 錯誤:`, sessionError);
+    throw new EdgeFunctionError(
+      'SESSION_ERROR',
+      '無法取得登入狀態，請重新登入',
+      { originalError: sessionError }
+    );
+  }
+
+  // 🚨 關鍵修復：確保有 session 和 access_token
+  if (!session || !session.access_token) {
+    console.error(`[EdgeFunction] ❌ 無有效 session 或 token`);
+    throw new EdgeFunctionError(
+      'NO_SESSION',
+      '請先登入才能執行此操作',
+      { hasSession: !!session, hasToken: !!session?.access_token }
+    );
   }
 
   // 檢查 token 是否即將過期
-  if (session?.expires_at) {
+  if (session.expires_at) {
     const expiresIn = session.expires_at * 1000 - Date.now();
     if (expiresIn < 5 * 60 * 1000) {
       console.warn(`[EdgeFunction] ⚠️ Token 即將過期（剩餘 ${Math.floor(expiresIn / 1000)} 秒），建議刷新`);
@@ -98,12 +113,19 @@ export async function invokeEdgeFunction<T = unknown>(
 
   try {
     console.log(`[EdgeFunction] 📤 發送請求到 ${functionName}...`);
+    console.log(`[EdgeFunction] 🔑 使用 Token:`, session.access_token.substring(0, 30) + '...');
 
     const startTime = Date.now();
 
+    // 🚨 關鍵修復：明確傳遞 Authorization header
     const { data, error } = await supabase.functions.invoke<EdgeFunctionResponse<T>>(
       functionName,
-      body ? { body: body as Record<string, any> } : undefined
+      {
+        body: body as Record<string, any>,
+        headers: {
+          Authorization: `Bearer ${session.access_token}`
+        }
+      }
     );
 
     const duration = Date.now() - startTime;

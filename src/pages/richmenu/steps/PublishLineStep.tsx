@@ -53,7 +53,6 @@ export const PublishLineStep: React.FC<PublishLineStepProps> = ({ menus, onReset
       await onSaveDraft();
 
       const { validateImageFileSize, validateHotspotCount, validateAliasId } = await import('@/lib/lineRichMenuBuilder');
-      const { supabase } = await import('@/lib/supabase');
 
       // 驗證 Rich Menu 規範（LINE 官方限制）
       for (const menu of menus) {
@@ -76,42 +75,20 @@ export const PublishLineStep: React.FC<PublishLineStepProps> = ({ menus, onReset
         }
       }
 
-      // ✅ 移除手動 session 管理，讓 SDK 的 autoRefreshToken: true 自動處理
+      // ✅ 完全移除手動 session 管理，讓 SDK 的 autoRefreshToken: true 自動處理
       // 與成功的 Broadcast 功能保持一致的模式
+      // SDK 會在 Edge Function 調用前自動附加最新的 Authorization header
 
-      // 🔍 診斷：檢查 session 是否存在（用於診斷 401 錯誤）
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      // 🚨 關鍵修復：使用 Edge Function（與計劃一致）
+      // 完全依賴 SDK 自動處理認證，不手動檢查或刷新 session
+      const { publishRichMenus } = await import('@/lib/richMenuPublish');
 
-      console.log('[PublishLineStep] 🔍 Session 診斷:', {
-        hasSession: !!session,
-        hasAccessToken: !!session?.access_token,
-        tokenLength: session?.access_token?.length,
-        tokenPreview: session?.access_token?.substring(0, 30) + '...',
-        expiresAt: session?.expires_at,
-        expiresIn: session?.expires_at
-          ? Math.floor((session.expires_at * 1000 - Date.now()) / 1000) + ' 秒'
-          : null,
-        userId: session?.user?.id,
-        userEmail: session?.user?.email,
-        sessionError: sessionError?.message
-      });
+      console.log('[PublishLineStep] 🚀 Publishing menus via Edge Function...');
+      console.log('[PublishLineStep] 📊 Publishing', menus.length, 'menus');
+      console.log('[PublishLineStep] 🔑 Relying on SDK autoRefreshToken (same pattern as Broadcast)');
 
-      if (sessionError || !session?.access_token) {
-        const errorMsg = sessionError?.message || '無法取得登入 Token';
-        console.error('[PublishLineStep] ❌ Session 檢查失敗:', errorMsg);
-        throw new Error(`❌ 認證失敗\n\n${errorMsg}\n\n請重新登入或重新整理頁面`);
-      }
-
-      // 🚨 關鍵修復：改用 RPC 模式（與成功的 Broadcast 一致）
-      // RPC 會自動附加 Authorization header，避免 Edge Function 的 401 錯誤
-      const { publishRichMenusViaRPC } = await import('@/lib/richMenuPublishRpc');
-
-      console.log('[PublishLineStep] Publishing menus via PostgreSQL RPC...');
-      console.log('[PublishLineStep] Publishing', menus.length, 'menus');
-      console.log('[PublishLineStep] Using RPC mode (same as successful Broadcast)');
-
-      // 使用 RPC 調用發布（與 Broadcast 相同模式）
-      const allResults = await publishRichMenusViaRPC(menus, true);
+      // 直接調用發布，SDK 會自動附加 Authorization header
+      const allResults = await publishRichMenus(menus, true);
       console.log('[PublishLineStep] ✅ All menus published successfully');
 
       // 更新前端狀態與資料庫

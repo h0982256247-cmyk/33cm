@@ -1,6 +1,7 @@
 import { invokeEdgeFunction, RichMenuPublishResponse } from '@/lib/edgeFunction';
 import { RichMenu } from '@/lib/richmenuTypes';
 import { buildLineRichMenuPayload } from '@/lib/lineRichMenuBuilder';
+import { supabase } from '@/lib/supabase';
 
 /**
  * 發布所有 Rich Menus
@@ -11,6 +12,16 @@ export async function publishRichMenus(
     cleanOld: boolean = true
 ): Promise<{ aliasId: string; richMenuId: string }[]> {
     console.log('[richMenuPublish] Publishing', menus.length, 'menus via Edge Function...');
+
+    // ✅ 檢查用戶認證狀態
+    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+
+    if (sessionError || !session) {
+        console.error('[richMenuPublish] ❌ No valid session:', sessionError);
+        throw new Error('請先登入才能發布 Rich Menu。如果已登入，請重新整理頁面後再試。');
+    }
+
+    console.log('[richMenuPublish] ✅ Session valid, user:', session.user.id);
 
     // 準備請求數據
     const requestData = {
@@ -43,6 +54,12 @@ export async function publishRichMenus(
         if (error instanceof Error) {
             // EdgeFunctionError 會有 message
             errorMessage = error.message;
+
+            // 特別處理認證錯誤
+            if (error.message.includes('Unauthorized') || error.message.includes('401')) {
+                errorMessage = '認證失敗：請重新登入後再試。\n\n' +
+                              '這可能是因為您的登入狀態已過期。';
+            }
 
             // 如果是配置錯誤，提供管理員提示
             if (error.message.includes('SERVICE_ROLE_KEY') || error.message.includes('配置錯誤')) {

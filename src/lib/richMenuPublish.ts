@@ -1,4 +1,4 @@
-import { invokeEdgeFunction, RichMenuPublishResponse } from '@/lib/edgeFunction';
+import { RichMenuPublishResponse } from '@/lib/edgeFunction';
 import { RichMenu } from '@/lib/richmenuTypes';
 import { buildLineRichMenuPayload } from '@/lib/lineRichMenuBuilder';
 import { supabase } from '@/lib/supabase';
@@ -84,15 +84,41 @@ export async function publishRichMenus(
     try {
         console.log('[richMenuPublish] 📤 調用 Edge Function...');
         console.log('[richMenuPublish] 🎯 Function: richmenu-publish');
+        console.log('[richMenuPublish] 🔑 使用直接調用模式（與成功的 Broadcast 一致）');
 
         const startTime = Date.now();
 
-        const result = await invokeEdgeFunction<RichMenuPublishResponse>(
-            'richmenu-publish',
-            requestData
-        );
+        // 🚨 關鍵修復：直接調用 supabase.functions.invoke()
+        // 與成功的 Broadcast Function 保持一致，完全繞過 edgeFunction.ts
+        // 讓 Supabase SDK 自動處理認證
+        const { data, error } = await supabase.functions.invoke<{
+            success: boolean;
+            data?: RichMenuPublishResponse;
+            error?: { code: string; message: string; details?: unknown };
+        }>('richmenu-publish', {
+            body: requestData
+        });
 
         const duration = Date.now() - startTime;
+        console.log('[richMenuPublish] ⏱️ 請求耗時:', duration, 'ms');
+
+        // 處理 Supabase client 層面的錯誤
+        if (error) {
+            console.error('[richMenuPublish] ❌ Edge Function 調用錯誤:', error);
+            throw new Error(`Edge Function 調用失敗: ${error.message}`);
+        }
+
+        // 處理業務邏輯錯誤
+        if (!data || !data.success) {
+            console.error('[richMenuPublish] ❌ 業務邏輯錯誤:', data?.error);
+            throw new Error(data?.error?.message || '發布失敗');
+        }
+
+        if (!data.data) {
+            throw new Error('Edge Function 未返回數據');
+        }
+
+        const result = data.data;
 
         console.log('═══════════════════════════════════════════');
         console.log('[richMenuPublish] ✅ 發布成功！');

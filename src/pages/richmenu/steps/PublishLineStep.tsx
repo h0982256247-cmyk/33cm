@@ -102,14 +102,16 @@ export const PublishLineStep: React.FC<PublishLineStepProps> = ({ menus, onReset
         throw new Error(`❌ 認證失敗\n\n${errorMsg}\n\n請重新登入或重新整理頁面`);
       }
 
-      // 使用新的前端發布服務（避免 pgsql-http API 限制）
-      const { publishRichMenus } = await import('@/lib/richMenuPublish');
+      // 🚨 關鍵修復：改用 RPC 模式（與成功的 Broadcast 一致）
+      // RPC 會自動附加 Authorization header，避免 Edge Function 的 401 錯誤
+      const { publishRichMenusViaRPC } = await import('@/lib/richMenuPublishRpc');
 
-      console.log('[PublishLineStep] Publishing menus via direct LINE API...');
+      console.log('[PublishLineStep] Publishing menus via PostgreSQL RPC...');
       console.log('[PublishLineStep] Publishing', menus.length, 'menus');
+      console.log('[PublishLineStep] Using RPC mode (same as successful Broadcast)');
 
-      // 直接調用 LINE API 發布
-      const allResults = await publishRichMenus(menus, true);
+      // 使用 RPC 調用發布（與 Broadcast 相同模式）
+      const allResults = await publishRichMenusViaRPC(menus, true);
       console.log('[PublishLineStep] ✅ All menus published successfully');
 
       // 更新前端狀態與資料庫

@@ -31,7 +31,21 @@ serve(async (req) => {
     console.log('[richmenu-publish] Auth header present:', !!authHeader);
 
     if (!authHeader) {
-      throw new Error('Missing authorization header')
+      console.error('[richmenu-publish] ❌ Missing Authorization header');
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: {
+            code: 'UNAUTHORIZED',
+            message: '請先登入',
+            details: 'Missing Authorization header'
+          }
+        }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 200
+        }
+      );
     }
 
     // 獲取環境變數（包含 service role key）
@@ -82,11 +96,33 @@ serve(async (req) => {
     // 驗證 JWT 並獲取用戶
     const { data: { user }, error: userError } = await supabase.auth.getUser()
     if (userError || !user) {
-      console.error('[richmenu-publish] Auth failed:', userError);
-      throw new Error('Unauthorized')
+      console.error('[richmenu-publish] ❌ User verification failed');
+      console.error('[richmenu-publish] 🔍 Error details:', {
+        message: userError?.message,
+        name: userError?.name,
+        hasUser: !!user
+      });
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: {
+            code: 'AUTH_FAILED',
+            message: '認證失敗',
+            details: {
+              error: userError?.message || 'No user found',
+              name: userError?.name
+            }
+          }
+        }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 200
+        }
+      );
     }
 
-    console.log('[richmenu-publish] User authenticated:', user.id)
+    console.log('[richmenu-publish] ✅ User authenticated:', user.id)
+    console.log('[richmenu-publish] 🔍 User email:', user.email)
 
     // 2. 獲取請求數據
     const { menus, cleanOldMenus } = await req.json()
@@ -102,13 +138,26 @@ serve(async (req) => {
       .eq('is_active', true)
       .single()
 
-    if (channelError || !channelData) {
-      console.error('[richmenu-publish] Token fetch error:', channelError);
-      throw new Error('LINE Token not found')
+    if (channelError || !channelData?.access_token_encrypted) {
+      console.error('[richmenu-publish] ❌ LINE token not found:', channelError);
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: {
+            code: 'TOKEN_NOT_FOUND',
+            message: 'LINE Token 未設定，請先綁定 LINE Channel',
+            details: channelError?.message
+          }
+        }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 200
+        }
+      );
     }
 
     const lineToken = channelData.access_token_encrypted
-    console.log('[richmenu-publish] LINE token retrieved successfully');
+    console.log('[richmenu-publish] ✅ LINE token retrieved successfully');
 
     // 4. 清理舊選單（如果需要）
     if (cleanOldMenus) {

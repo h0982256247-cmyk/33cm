@@ -76,23 +76,8 @@ export const PublishLineStep: React.FC<PublishLineStepProps> = ({ menus, onReset
         }
       }
 
-      // Session Guard: 確保有效的 auth session
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-      if (sessionError || !session) {
-        throw new Error('登入狀態已過期，請重新整理頁面並重新登入');
-      }
-
-      // 檢查 token 是否即將過期（30秒內）
-      const expiresAt = session.expires_at ? session.expires_at * 1000 : 0;
-      const now = Date.now();
-      if (expiresAt - now < 30000) {
-        // Token 即將過期，嘗試刷新
-        console.log('[PublishLineStep] Token expiring soon, refreshing...');
-        const { data: { session: newSession }, error: refreshError } = await supabase.auth.refreshSession();
-        if (refreshError || !newSession) {
-          throw new Error('無法刷新登入狀態，請重新登入');
-        }
-      }
+      // ✅ 移除手動 session 管理，讓 SDK 的 autoRefreshToken: true 自動處理
+      // 與成功的 Broadcast 功能保持一致的模式
 
       // 使用新的前端發布服務（避免 pgsql-http API 限制）
       const { publishRichMenus } = await import('@/lib/richMenuPublish');

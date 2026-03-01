@@ -31,29 +31,8 @@ export async function publishRichMenus(
         });
     });
 
-    // Session 檢查
-    console.log('[richMenuPublish] 🔐 檢查用戶認證狀態...');
-    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-
-    if (sessionError) {
-        console.error('[richMenuPublish] ❌ Session 錯誤:', sessionError);
-        throw new Error('取得登入狀態時發生錯誤，請重新整理頁面');
-    }
-
-    if (!session) {
-        console.error('[richMenuPublish] ❌ 無有效 session');
-        throw new Error('請先登入才能發布 Rich Menu');
-    }
-
-    console.log('[richMenuPublish] ✅ Session 有效');
-    console.log('[richMenuPublish] 👤 用戶資訊:', {
-        id: session.user.id,
-        email: session.user.email,
-        tokenExpiry: session.expires_at,
-        expiresIn: session.expires_at
-            ? Math.floor((session.expires_at * 1000 - Date.now()) / 1000) + '秒'
-            : null
-    });
+    // ✅ 移除前端 session 檢查，Edge Function 會自動驗證 JWT
+    // SDK 會在 functions.invoke() 時自動附加最新的 Authorization header
 
     // 準備請求數據
     console.log('[richMenuPublish] 📦 準備請求數據...');

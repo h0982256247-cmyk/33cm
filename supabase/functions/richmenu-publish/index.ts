@@ -218,16 +218,39 @@ serve(async (req) => {
       if (imageBase64) {
         console.log('[richmenu-publish] Uploading image...')
 
-        // 移除 data URL 前綴
-        const base64Data = imageBase64.includes(',')
-          ? imageBase64.split(',')[1]
-          : imageBase64
+        let bytes: Uint8Array
+        try {
+          // 移除 data URL 前綴
+          let base64Data = imageBase64.includes(',')
+            ? imageBase64.split(',')[1]
+            : imageBase64
 
-        // 解碼 base64 為 binary
-        const binaryString = atob(base64Data)
-        const bytes = new Uint8Array(binaryString.length)
-        for (let i = 0; i < binaryString.length; i++) {
-          bytes[i] = binaryString.charCodeAt(i)
+          console.log('[richmenu-publish] 🔍 Base64 原始長度:', imageBase64.length)
+          console.log('[richmenu-publish] 🔍 Base64 前綴:', imageBase64.substring(0, 50))
+
+          // 🚨 關鍵修復：清理 base64 字符串
+          // 移除所有空白字符（空格、換行、制表符等）
+          base64Data = base64Data.replace(/\s/g, '')
+
+          console.log('[richmenu-publish] 🔍 清理後 Base64 長度:', base64Data.length)
+          console.log('[richmenu-publish] 🔍 清理後前 50 字符:', base64Data.substring(0, 50))
+
+          // 驗證 base64 格式
+          if (!/^[A-Za-z0-9+/]*={0,2}$/.test(base64Data)) {
+            throw new Error('Invalid base64 format: contains invalid characters')
+          }
+
+          // 解碼 base64 為 binary
+          const binaryString = atob(base64Data)
+          bytes = new Uint8Array(binaryString.length)
+          for (let i = 0; i < binaryString.length; i++) {
+            bytes[i] = binaryString.charCodeAt(i)
+          }
+
+          console.log('[richmenu-publish] ✅ Base64 解碼成功，圖片大小:', bytes.length, 'bytes')
+        } catch (decodeError: any) {
+          console.error('[richmenu-publish] ❌ Base64 解碼失敗:', decodeError)
+          throw new Error(`Failed to decode base64 image: ${decodeError.message}`)
         }
 
         const uploadResponse = await fetch(`${LINE_API}/richmenu/${richMenuId}/content`, {
@@ -236,7 +259,7 @@ serve(async (req) => {
             'Authorization': `Bearer ${lineToken}`,
             'Content-Type': 'image/png'
           },
-          body: bytes
+          body: bytes.buffer as ArrayBuffer
         })
 
         if (!uploadResponse.ok) {

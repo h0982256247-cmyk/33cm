@@ -79,6 +79,29 @@ export const PublishLineStep: React.FC<PublishLineStepProps> = ({ menus, onReset
       // ✅ 移除手動 session 管理，讓 SDK 的 autoRefreshToken: true 自動處理
       // 與成功的 Broadcast 功能保持一致的模式
 
+      // 🔍 診斷：檢查 session 是否存在（用於診斷 401 錯誤）
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+
+      console.log('[PublishLineStep] 🔍 Session 診斷:', {
+        hasSession: !!session,
+        hasAccessToken: !!session?.access_token,
+        tokenLength: session?.access_token?.length,
+        tokenPreview: session?.access_token?.substring(0, 30) + '...',
+        expiresAt: session?.expires_at,
+        expiresIn: session?.expires_at
+          ? Math.floor((session.expires_at * 1000 - Date.now()) / 1000) + ' 秒'
+          : null,
+        userId: session?.user?.id,
+        userEmail: session?.user?.email,
+        sessionError: sessionError?.message
+      });
+
+      if (sessionError || !session?.access_token) {
+        const errorMsg = sessionError?.message || '無法取得登入 Token';
+        console.error('[PublishLineStep] ❌ Session 檢查失敗:', errorMsg);
+        throw new Error(`❌ 認證失敗\n\n${errorMsg}\n\n請重新登入或重新整理頁面`);
+      }
+
       // 使用新的前端發布服務（避免 pgsql-http API 限制）
       const { publishRichMenus } = await import('@/lib/richMenuPublish');
 

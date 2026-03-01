@@ -12,18 +12,43 @@ interface PublishLineStepProps {
   onSaveDraft: () => Promise<void>;
 }
 
+// 根據錯誤提供建議
+function getSuggestion(error: any): string {
+  if (error.message?.includes('401') || error.message?.includes('Unauthorized') || error.message?.includes('認證')) {
+    return '請嘗試重新登入或重新整理頁面';
+  }
+  if (error.message?.includes('網路') || error.message?.includes('INVOCATION')) {
+    return '請檢查網路連線後重試';
+  }
+  if (error.message?.includes('LINE')) {
+    return '請檢查 LINE Channel 設定和 Token 是否有效';
+  }
+  if (error.message?.includes('配置') || error.message?.includes('SERVICE_ROLE_KEY')) {
+    return '請聯繫系統管理員檢查伺服器配置';
+  }
+  return '請查看瀏覽器 Console 了解詳細資訊';
+}
+
 export const PublishLineStep: React.FC<PublishLineStepProps> = ({ menus, onReset, onStatusChange, onPublishComplete, onBack, onSaveDraft }) => {
   const [status, setStatus] = useState<'idle' | 'publishing' | 'scheduling' | 'success'>('idle');
   const [scheduledDate, setScheduledDate] = useState('');
   const [scheduledTime, setScheduledTime] = useState('');
+  const [errorDetails, setErrorDetails] = useState<{
+    message: string;
+    timestamp: string;
+    suggestion?: string;
+  } | null>(null);
 
   const mainMenu = menus.find(m => m.isMain);
   const totalHotspots = menus.reduce((acc, m) => acc + m.hotspots.length, 0);
 
   const handlePublishNow = async () => {
     setStatus('publishing');
+    setErrorDetails(null);  // 清除之前的錯誤
 
     try {
+      console.log('[PublishLineStep] 🚀 開始發布流程...');
+
       // Auto-save draft before publishing
       await onSaveDraft();
 
@@ -84,9 +109,22 @@ export const PublishLineStep: React.FC<PublishLineStepProps> = ({ menus, onReset
         onPublishComplete(allResults);
       }
 
+      console.log('[PublishLineStep] ✅ 發布成功');
       setStatus('success');
+
+      if (onPublishComplete) {
+        onPublishComplete(allResults);
+      }
     } catch (error: any) {
-      console.error(error);
+      console.error('[PublishLineStep] ❌ 發布失敗:', error);
+
+      const errorInfo = {
+        message: error.message || '發布失敗',
+        timestamp: new Date().toISOString(),
+        suggestion: getSuggestion(error),
+      };
+
+      setErrorDetails(errorInfo);
       alert(`發布失敗: ${error.message}`);
       setStatus('idle');
     }
@@ -234,6 +272,36 @@ export const PublishLineStep: React.FC<PublishLineStepProps> = ({ menus, onReset
             <Button onClick={handlePublishNow} disabled={status === 'publishing'} fullWidth className={`py-4 shadow-lg shadow-primary/20 ${status === 'publishing' ? 'animate-pulse' : ''}`}>{status === 'publishing' ? '正提交至 LINE...' : '現在立即發布'}</Button>
             <Button onClick={() => setStatus('scheduling')} variant="ghost" className="text-primary font-bold">我要預約排程發布</Button>
           </div>
+
+          {/* 錯誤詳情顯示 */}
+          {errorDetails && (
+            <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg animate-in slide-in-from-top duration-300">
+              <div className="flex items-start gap-3">
+                <div className="text-red-500 text-xl flex-shrink-0">❌</div>
+                <div className="flex-1 min-w-0">
+                  <h4 className="font-bold text-red-900 mb-2">發布失敗</h4>
+                  <p className="text-sm text-red-800 whitespace-pre-line break-words">{errorDetails.message}</p>
+                  {errorDetails.suggestion && (
+                    <div className="mt-3 p-2 bg-red-100 rounded border border-red-300">
+                      <p className="text-sm text-red-700">
+                        <span className="font-semibold">💡 建議：</span>{errorDetails.suggestion}
+                      </p>
+                    </div>
+                  )}
+                  <p className="text-xs text-red-500 mt-3 opacity-75">
+                    時間：{new Date(errorDetails.timestamp).toLocaleString('zh-TW', {
+                      year: 'numeric',
+                      month: '2-digit',
+                      day: '2-digit',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                      second: '2-digit'
+                    })}
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </Card>
     </div>

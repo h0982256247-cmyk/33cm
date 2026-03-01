@@ -61,39 +61,111 @@ export async function invokeEdgeFunction<T = unknown>(
   functionName: string,
   body?: unknown
 ): Promise<T> {
-  console.log(`[EdgeFunction] 調用 ${functionName}...`, {
+  console.log(`[EdgeFunction] 🚀 調用 ${functionName}...`);
+  console.log(`[EdgeFunction] 📅 時間: ${new Date().toISOString()}`);
+  console.log(`[EdgeFunction] 📦 請求 body:`, {
     hasBody: !!body,
-    timestamp: new Date().toISOString(),
+    bodySize: body ? JSON.stringify(body).length : 0,
+    bodyPreview: body ? JSON.stringify(body).substring(0, 200) + '...' : null
   });
 
+  // 🔍 檢查 Session 狀態
+  const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+
+  console.log(`[EdgeFunction] 🔐 Session 檢查:`, {
+    hasSession: !!session,
+    hasAccessToken: !!session?.access_token,
+    tokenLength: session?.access_token?.length,
+    tokenPrefix: session?.access_token?.substring(0, 30) + '...',
+    expiresAt: session?.expires_at,
+    expiresIn: session?.expires_at ? Math.floor((session.expires_at * 1000 - Date.now()) / 1000) + '秒' : null,
+    userId: session?.user?.id,
+    userEmail: session?.user?.email,
+    hasRefreshToken: !!session?.refresh_token
+  });
+
+  if (sessionError) {
+    console.error(`[EdgeFunction] ❌ Session 錯誤:`, sessionError);
+  }
+
+  // 檢查 token 是否即將過期
+  if (session?.expires_at) {
+    const expiresIn = session.expires_at * 1000 - Date.now();
+    if (expiresIn < 5 * 60 * 1000) {
+      console.warn(`[EdgeFunction] ⚠️ Token 即將過期（剩餘 ${Math.floor(expiresIn / 1000)} 秒），建議刷新`);
+    }
+  }
+
   try {
-    // 調用 Edge Function（Supabase client 會自動傳遞 JWT）
+    console.log(`[EdgeFunction] 📤 發送請求到 ${functionName}...`);
+
+    const startTime = Date.now();
+
     const { data, error } = await supabase.functions.invoke<EdgeFunctionResponse<T>>(
       functionName,
       body ? { body: body as Record<string, any> } : undefined
     );
 
-    // Supabase client 層面的錯誤（網路錯誤、認證失敗等）
+    const duration = Date.now() - startTime;
+    console.log(`[EdgeFunction] ⏱️ 請求耗時: ${duration}ms`);
+
+    // Supabase client 層面的錯誤
     if (error) {
-      console.error(`[EdgeFunction] ${functionName} 調用失敗:`, error);
+      console.error(`[EdgeFunction] ❌ 調用失敗 (${functionName})`);
+      console.error(`[EdgeFunction] 🔍 錯誤類型:`, {
+        name: error.name,
+        message: error.message,
+        constructor: error.constructor?.name,
+      });
+      console.error(`[EdgeFunction] 🔍 HTTP 資訊:`, {
+        status: (error as any).status,
+        statusText: (error as any).statusText,
+        context: (error as any).context,
+      });
+      console.error(`[EdgeFunction] 🔍 完整錯誤:`, error);
+
       throw new EdgeFunctionError(
         'INVOCATION_ERROR',
         `Edge Function 調用失敗: ${error.message}`,
-        error
+        {
+          originalError: error,
+          status: (error as any).status,
+          statusText: (error as any).statusText,
+          context: (error as any).context,
+          duration,
+        }
       );
     }
+
+    // 檢查響應格式
+    console.log(`[EdgeFunction] 📥 收到響應:`, {
+      hasData: !!data,
+      dataType: typeof data,
+      success: data?.success,
+      hasError: !!data?.error,
+    });
 
     // Edge Function 返回的業務邏輯錯誤
     if (data && !data.success) {
-      console.error(`[EdgeFunction] ${functionName} 返回錯誤:`, data.error);
+      console.error(`[EdgeFunction] ❌ 業務邏輯錯誤 (${functionName})`);
+      console.error(`[EdgeFunction] 🔍 錯誤代碼:`, data.error?.code);
+      console.error(`[EdgeFunction] 🔍 錯誤訊息:`, data.error?.message);
+      console.error(`[EdgeFunction] 🔍 錯誤詳情:`, data.error?.details);
+
       throw new EdgeFunctionError(
         data.error?.code || 'UNKNOWN_ERROR',
         data.error?.message || '未知錯誤',
-        data.error?.details
+        {
+          details: data.error?.details,
+          duration,
+          functionName,
+        }
       );
     }
 
-    console.log(`[EdgeFunction] ${functionName} 調用成功`);
+    console.log(`[EdgeFunction] ✅ ${functionName} 調用成功 (${duration}ms)`);
+    console.log(`[EdgeFunction] 📊 響應數據:`, data?.data);
+
     return data?.data as T;
 
   } catch (error) {
@@ -103,11 +175,19 @@ export async function invokeEdgeFunction<T = unknown>(
     }
 
     // 未知錯誤
-    console.error(`[EdgeFunction] ${functionName} 未知錯誤:`, error);
+    console.error(`[EdgeFunction] ❌ 未知錯誤 (${functionName}):`, error);
+    console.error(`[EdgeFunction] 🔍 錯誤類型:`, error?.constructor?.name);
+    console.error(`[EdgeFunction] 🔍 錯誤 stack:`, (error as Error)?.stack);
+
     throw new EdgeFunctionError(
       'UNEXPECTED_ERROR',
       error instanceof Error ? error.message : '未知錯誤',
-      error
+      {
+        originalError: error,
+        errorType: error?.constructor?.name,
+        stack: (error as Error)?.stack,
+        functionName,
+      }
     );
   }
 }

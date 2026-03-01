@@ -11,59 +11,142 @@ export async function publishRichMenus(
     menus: RichMenu[],
     cleanOld: boolean = true
 ): Promise<{ aliasId: string; richMenuId: string }[]> {
-    console.log('[richMenuPublish] Publishing', menus.length, 'menus via Edge Function...');
+    console.log('═══════════════════════════════════════════');
+    console.log('[richMenuPublish] 🚀 開始發布 Rich Menu');
+    console.log('[richMenuPublish] 📅 時間:', new Date().toISOString());
+    console.log('[richMenuPublish] 📊 選單數量:', menus.length);
+    console.log('[richMenuPublish] 🧹 清理舊選單:', cleanOld);
+    console.log('═══════════════════════════════════════════');
 
-    // ✅ 檢查用戶認證狀態
+    // 輸出每個選單的詳細資訊
+    menus.forEach((menu, index) => {
+        console.log(`[richMenuPublish] 📋 選單 ${index + 1}/${menus.length}:`, {
+            id: menu.id,
+            name: menu.name,
+            isMain: menu.isMain,
+            size: menu.size,
+            hotspots: menu.hotspots.length,
+            hasImage: !!menu.imageData,
+            imageSize: menu.imageData ? menu.imageData.length : 0,
+        });
+    });
+
+    // Session 檢查
+    console.log('[richMenuPublish] 🔐 檢查用戶認證狀態...');
     const { data: { session }, error: sessionError } = await supabase.auth.getSession();
 
-    if (sessionError || !session) {
-        console.error('[richMenuPublish] ❌ No valid session:', sessionError);
-        throw new Error('請先登入才能發布 Rich Menu。如果已登入，請重新整理頁面後再試。');
+    if (sessionError) {
+        console.error('[richMenuPublish] ❌ Session 錯誤:', sessionError);
+        throw new Error('取得登入狀態時發生錯誤，請重新整理頁面');
     }
 
-    console.log('[richMenuPublish] ✅ Session valid, user:', session.user.id);
+    if (!session) {
+        console.error('[richMenuPublish] ❌ 無有效 session');
+        throw new Error('請先登入才能發布 Rich Menu');
+    }
+
+    console.log('[richMenuPublish] ✅ Session 有效');
+    console.log('[richMenuPublish] 👤 用戶資訊:', {
+        id: session.user.id,
+        email: session.user.email,
+        tokenExpiry: session.expires_at,
+        expiresIn: session.expires_at
+            ? Math.floor((session.expires_at * 1000 - Date.now()) / 1000) + '秒'
+            : null
+    });
 
     // 準備請求數據
+    console.log('[richMenuPublish] 📦 準備請求數據...');
     const requestData = {
-        menus: menus.map(menu => ({
-            menuData: buildLineRichMenuPayload(menu, menus),
-            imageBase64: menu.imageData,
-            aliasId: menu.id.replace(/-/g, ''),
-            isMain: menu.isMain
-        })),
+        menus: menus.map((menu, index) => {
+            const menuData = buildLineRichMenuPayload(menu, menus);
+            const aliasId = menu.id.replace(/-/g, '');
+
+            console.log(`[richMenuPublish] 🔧 處理選單 ${index + 1}: ${menu.name}`, {
+                aliasId,
+                isMain: menu.isMain,
+                menuDataSize: JSON.stringify(menuData).length,
+                imageSize: menu.imageData?.length || 0,
+            });
+
+            return {
+                menuData,
+                imageBase64: menu.imageData,
+                aliasId,
+                isMain: menu.isMain
+            };
+        }),
         cleanOldMenus: cleanOld
     };
 
+    console.log('[richMenuPublish] 📊 請求數據總大小:', JSON.stringify(requestData).length, 'bytes');
+
     try {
-        // 使用統一的 Edge Function 調用模式
-        // Supabase SDK 會自動處理 JWT token 和 apikey header
+        console.log('[richMenuPublish] 📤 調用 Edge Function...');
+        console.log('[richMenuPublish] 🎯 Function: richmenu-publish');
+
+        const startTime = Date.now();
+
         const result = await invokeEdgeFunction<RichMenuPublishResponse>(
             'richmenu-publish',
             requestData
         );
 
-        console.log('[richMenuPublish] ✅ All menus published successfully');
+        const duration = Date.now() - startTime;
+
+        console.log('═══════════════════════════════════════════');
+        console.log('[richMenuPublish] ✅ 發布成功！');
+        console.log('[richMenuPublish] ⏱️ 總耗時:', duration, 'ms');
+        console.log('[richMenuPublish] 📊 發布結果:', result.results);
+        console.log('[richMenuPublish] 📅 發布時間:', result.publishedAt);
+        console.log('═══════════════════════════════════════════');
+
         return result.results;
 
     } catch (error: any) {
-        console.error('[richMenuPublish] ❌ Publish failed:', error);
+        console.log('═══════════════════════════════════════════');
+        console.error('[richMenuPublish] ❌ 發布失敗');
+        console.error('[richMenuPublish] 🔍 錯誤類型:', error?.constructor?.name);
+        console.error('[richMenuPublish] 🔍 錯誤訊息:', error?.message);
+        console.error('[richMenuPublish] 🔍 錯誤代碼:', error?.code);
+        console.error('[richMenuPublish] 🔍 錯誤詳情:', error?.details);
+        console.error('[richMenuPublish] 🔍 完整錯誤:', error);
+        console.log('═══════════════════════════════════════════');
 
-        // 提供更詳細的錯誤訊息
+        // 根據錯誤類型提供友好的錯誤訊息
         let errorMessage = '發布失敗';
 
         if (error instanceof Error) {
-            // EdgeFunctionError 會有 message
             errorMessage = error.message;
 
-            // 特別處理認證錯誤
+            // 針對不同錯誤類型提供解決建議
             if (error.message.includes('Unauthorized') || error.message.includes('401')) {
-                errorMessage = '認證失敗：請重新登入後再試。\n\n' +
-                              '這可能是因為您的登入狀態已過期。';
-            }
-
-            // 如果是配置錯誤，提供管理員提示
-            if (error.message.includes('SERVICE_ROLE_KEY') || error.message.includes('配置錯誤')) {
-                errorMessage += '\n\n請聯繫系統管理員設定 Edge Function secrets。';
+                errorMessage = '❌ 認證失敗\n\n' +
+                              '可能原因：\n' +
+                              '• 登入狀態已過期\n' +
+                              '• Token 無效或已撤銷\n\n' +
+                              '建議解決方案：\n' +
+                              '1. 重新整理頁面 (Cmd/Ctrl + R)\n' +
+                              '2. 重新登入\n' +
+                              '3. 檢查網路連線';
+            } else if (error.message.includes('SERVICE_ROLE_KEY') || error.message.includes('配置錯誤')) {
+                errorMessage = '❌ 伺服器配置錯誤\n\n' +
+                              error.message + '\n\n' +
+                              '請聯繫系統管理員處理。';
+            } else if (error.message.includes('INVOCATION_ERROR')) {
+                errorMessage = '❌ 網路連線錯誤\n\n' +
+                              '無法連接到伺服器。\n\n' +
+                              '建議解決方案：\n' +
+                              '1. 檢查網路連線\n' +
+                              '2. 稍後再試\n' +
+                              '3. 如果問題持續，請聯繫技術支援';
+            } else if (error.message.includes('LINE')) {
+                errorMessage = '❌ LINE API 錯誤\n\n' +
+                              error.message + '\n\n' +
+                              '建議解決方案：\n' +
+                              '1. 檢查 LINE Channel Access Token 是否有效\n' +
+                              '2. 確認選單格式符合 LINE 官方規範\n' +
+                              '3. 檢查圖片大小是否超過 1MB';
             }
         }
 

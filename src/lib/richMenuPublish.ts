@@ -24,7 +24,6 @@ export async function publishRichMenus(
             id: menu.id,
             name: menu.name,
             isMain: menu.isMain,
-            size: menu.size,
             hotspots: menu.hotspots.length,
             hasImage: !!menu.imageData,
             imageSize: menu.imageData ? menu.imageData.length : 0,
@@ -70,12 +69,47 @@ export async function publishRichMenus(
         // 🚨 關鍵修復：直接調用 supabase.functions.invoke()
         // 與成功的 Broadcast Function 保持一致，完全繞過 edgeFunction.ts
         // 讓 Supabase SDK 自動處理認證
+
+        // 🔧 診斷：獲取 session 並準備 headers
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+
+        console.log('[richMenuPublish] 🔍 Session 檢查:', {
+            hasSession: !!session,
+            hasAccessToken: !!session?.access_token,
+            tokenLength: session?.access_token?.length,
+            expiresAt: session?.expires_at,
+            expiresIn: session?.expires_at
+                ? Math.floor((session.expires_at * 1000 - Date.now()) / 1000)
+                : null,
+            sessionError: sessionError?.message
+        });
+
+        if (sessionError || !session?.access_token) {
+            throw new Error(sessionError?.message || '無法取得登入 Token，請重新登入');
+        }
+
+        const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+        console.log('[richMenuPublish] 🔍 準備 Headers:', {
+            hasAnonKey: !!anonKey,
+            anonKeyLength: anonKey?.length
+        });
+
+        if (!anonKey) {
+            throw new Error('環境變數 VITE_SUPABASE_ANON_KEY 未設定');
+        }
+
+        // 🚨 關鍵修復：手動附加 Authorization 和 apikey headers
+        // 因為 SDK 在某些情況下不會自動附加
         const { data, error } = await supabase.functions.invoke<{
             success: boolean;
             data?: RichMenuPublishResponse;
             error?: { code: string; message: string; details?: unknown };
         }>('richmenu-publish', {
-            body: requestData
+            body: requestData,
+            headers: {
+                Authorization: `Bearer ${session.access_token}`,
+                apikey: anonKey,
+            }
         });
 
         const duration = Date.now() - startTime;

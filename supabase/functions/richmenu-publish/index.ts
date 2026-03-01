@@ -11,21 +11,26 @@ interface PublishMenuRequest {
 }
 
 serve(async (req) => {
-  console.log('[richmenu-publish] Received request:', req.method);
-
-  // CORS headers
+  // CORS headers - 定義在最外層
   const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
   }
 
-  // Handle CORS preflight
-  if (req.method === 'OPTIONS') {
-    console.log('[richmenu-publish] CORS preflight request');
-    return new Response('ok', { headers: corsHeaders })
-  }
-
+  // 最外層錯誤處理 - 捕獲所有未預期的錯誤
   try {
+    console.log('[richmenu-publish] ===== Request Start =====');
+    console.log('[richmenu-publish] Received request:', req.method);
+    console.log('[richmenu-publish] URL:', req.url);
+
+    // Handle CORS preflight
+    if (req.method === 'OPTIONS') {
+      console.log('[richmenu-publish] CORS preflight request');
+      return new Response('ok', { headers: corsHeaders, status: 200 })
+    }
+
+    // 內層業務邏輯 try-catch
+    try {
     // 1. 驗證用戶身份
     const authHeader = req.headers.get('Authorization')
     console.log('[richmenu-publish] Auth header present:', !!authHeader);
@@ -291,29 +296,57 @@ serve(async (req) => {
       }
     )
 
-  } catch (error: any) {
-    console.error('[richmenu-publish] Error:', error)
+    } catch (error: any) {
+      // 內層錯誤處理 - 業務邏輯錯誤
+      console.error('[richmenu-publish] ❌ Business logic error:', error)
+      console.error('[richmenu-publish] Error details:', {
+        message: error.message,
+        stack: error.stack,
+        name: error.name
+      })
 
-    // 詳細的錯誤日誌
-    console.error('[richmenu-publish] Error details:', {
-      message: error.message,
-      stack: error.stack,
-      name: error.name
-    })
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: {
+            code: 'PUBLISH_ERROR',
+            message: error.message || 'Failed to publish Rich Menu',
+            details: error.stack || null
+          }
+        }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 200
+        }
+      )
+    }
+  } catch (outerError: any) {
+    // 最外層錯誤處理 - 捕獲 serve() 層級的錯誤
+    console.error('[richmenu-publish] ❌❌❌ CRITICAL: Outer error:', outerError);
+    console.error('[richmenu-publish] Outer error details:', {
+      message: outerError?.message,
+      stack: outerError?.stack,
+      name: outerError?.name,
+      type: typeof outerError
+    });
 
-    // ✅ 關鍵修復：總是返回 200，錯誤信息放在 JSON body
+    // 確保即使在最外層錯誤也返回 200
     return new Response(
       JSON.stringify({
         success: false,
         error: {
-          code: 'PUBLISH_ERROR',
-          message: error.message || 'Failed to publish Rich Menu',
-          details: error.stack || null
+          code: 'CRITICAL_ERROR',
+          message: outerError?.message || 'Critical server error',
+          details: outerError?.stack || String(outerError)
         }
       }),
       {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 200  // ✅ 改為 200（之前是 400）
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+          'Content-Type': 'application/json'
+        },
+        status: 200  // ✅ 即使是致命錯誤也返回 200
       }
     )
   }

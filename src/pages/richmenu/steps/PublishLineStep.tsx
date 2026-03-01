@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Card } from '@/components/richmenu/common/Card';
 import { Button } from '@/components/richmenu/common/Button';
 import { RichMenu, ProjectStatus } from '@/lib/richmenuTypes';
+import { supabase } from '@/lib/supabase';
 
 interface PublishLineStepProps {
   menus: RichMenu[];
@@ -10,6 +11,30 @@ interface PublishLineStepProps {
   onPublishComplete?: (results: { aliasId: string; richMenuId: string }[]) => void;
   onBack?: () => void;
   onSaveDraft: () => Promise<void>;
+}
+
+// 診斷資訊介面
+interface DebugInfo {
+  timestamp: string;
+  sessionState: {
+    hasSession: boolean;
+    hasAccessToken: boolean;
+    tokenExpiry?: string;
+    expiresIn?: string;
+    userId?: string;
+    userEmail?: string;
+  };
+  requestInfo?: {
+    functionName: string;
+    menusCount: number;
+    totalSize: number;
+  };
+  error?: {
+    type: string;
+    message: string;
+    code?: string;
+    details?: any;
+  };
 }
 
 // 根據錯誤提供建議
@@ -38,6 +63,8 @@ export const PublishLineStep: React.FC<PublishLineStepProps> = ({ menus, onReset
     timestamp: string;
     suggestion?: string;
   } | null>(null);
+  const [debugInfo, setDebugInfo] = useState<DebugInfo | null>(null);
+  const [showDebugPanel, setShowDebugPanel] = useState(false);
 
   const mainMenu = menus.find(m => m.isMain);
   const totalHotspots = menus.reduce((acc, m) => acc + m.hotspots.length, 0);
@@ -45,9 +72,35 @@ export const PublishLineStep: React.FC<PublishLineStepProps> = ({ menus, onReset
   const handlePublishNow = async () => {
     setStatus('publishing');
     setErrorDetails(null);  // 清除之前的錯誤
+    setDebugInfo(null);  // 清除之前的診斷資訊
 
     try {
       console.log('[PublishLineStep] 🚀 開始發布流程...');
+      console.log('═══════════════════════════════════════════');
+      console.log('[PublishLineStep] 📋 診斷資訊收集開始');
+
+      // 🔍 診斷步驟 1: 收集 Session 狀態
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+
+      const sessionState = {
+        hasSession: !!session,
+        hasAccessToken: !!session?.access_token,
+        tokenExpiry: session?.expires_at
+          ? new Date(session.expires_at * 1000).toISOString()
+          : undefined,
+        expiresIn: session?.expires_at
+          ? Math.floor((session.expires_at * 1000 - Date.now()) / 1000) + '秒'
+          : undefined,
+        userId: session?.user?.id,
+        userEmail: session?.user?.email,
+      };
+
+      console.log('[PublishLineStep] 🔐 Session 狀態:', sessionState);
+      console.log('[PublishLineStep] 🔑 Access Token 前綴:', session?.access_token?.substring(0, 30) + '...');
+
+      if (sessionError) {
+        console.error('[PublishLineStep] ⚠️ Session 錯誤:', sessionError);
+      }
 
       // Auto-save draft before publishing
       await onSaveDraft();
@@ -75,6 +128,33 @@ export const PublishLineStep: React.FC<PublishLineStepProps> = ({ menus, onReset
         }
       }
 
+      // 🔍 診斷步驟 2: 準備請求資訊
+      const requestData = {
+        menus: menus.map(menu => ({
+          menuData: {},  // 實際會在 publishRichMenus 內建立
+          imageBase64: menu.imageData,
+          aliasId: menu.id.replace(/-/g, ''),
+          isMain: menu.isMain
+        })),
+        cleanOldMenus: true
+      };
+
+      const requestInfo = {
+        functionName: 'richmenu-publish',
+        menusCount: menus.length,
+        totalSize: JSON.stringify(requestData).length,
+      };
+
+      console.log('[PublishLineStep] 📦 請求資訊:', requestInfo);
+
+      // 更新診斷資訊
+      const currentDebugInfo: DebugInfo = {
+        timestamp: new Date().toISOString(),
+        sessionState,
+        requestInfo,
+      };
+      setDebugInfo(currentDebugInfo);
+
       // ✅ 完全移除手動 session 管理，讓 SDK 的 autoRefreshToken: true 自動處理
       // 與成功的 Broadcast 功能保持一致的模式
       // SDK 會在 Edge Function 調用前自動附加最新的 Authorization header
@@ -86,6 +166,7 @@ export const PublishLineStep: React.FC<PublishLineStepProps> = ({ menus, onReset
       console.log('[PublishLineStep] 🚀 Publishing menus via Edge Function...');
       console.log('[PublishLineStep] 📊 Publishing', menus.length, 'menus');
       console.log('[PublishLineStep] 🔑 Relying on SDK autoRefreshToken (same pattern as Broadcast)');
+      console.log('═══════════════════════════════════════════');
 
       // 直接調用發布，SDK 會自動附加 Authorization header
       const allResults = await publishRichMenus(menus, true);
@@ -104,6 +185,21 @@ export const PublishLineStep: React.FC<PublishLineStepProps> = ({ menus, onReset
       }
     } catch (error: any) {
       console.error('[PublishLineStep] ❌ 發布失敗:', error);
+      console.error('[PublishLineStep] 🔍 錯誤類型:', error?.constructor?.name);
+      console.error('[PublishLineStep] 🔍 錯誤訊息:', error?.message);
+      console.error('[PublishLineStep] 🔍 完整錯誤:', error);
+      console.log('═══════════════════════════════════════════');
+
+      // 更新診斷資訊（包含錯誤）
+      setDebugInfo(prev => ({
+        ...prev!,
+        error: {
+          type: error?.constructor?.name || 'Error',
+          message: error?.message || '未知錯誤',
+          code: error?.code,
+          details: error?.details || error?.stack,
+        },
+      }));
 
       const errorInfo = {
         message: error.message || '發布失敗',
@@ -112,6 +208,7 @@ export const PublishLineStep: React.FC<PublishLineStepProps> = ({ menus, onReset
       };
 
       setErrorDetails(errorInfo);
+      setShowDebugPanel(true);  // 失敗時自動展開診斷面板
       alert(`發布失敗: ${error.message}`);
       setStatus('idle');
     }
@@ -259,6 +356,156 @@ export const PublishLineStep: React.FC<PublishLineStepProps> = ({ menus, onReset
             <Button onClick={handlePublishNow} disabled={status === 'publishing'} fullWidth className={`py-4 shadow-lg shadow-primary/20 ${status === 'publishing' ? 'animate-pulse' : ''}`}>{status === 'publishing' ? '正提交至 LINE...' : '現在立即發布'}</Button>
             <Button onClick={() => setStatus('scheduling')} variant="ghost" className="text-primary font-bold">我要預約排程發布</Button>
           </div>
+
+          {/* 診斷資訊面板 */}
+          {debugInfo && (
+            <div className="mt-4 border border-blue-200 rounded-lg overflow-hidden">
+              <button
+                onClick={() => setShowDebugPanel(!showDebugPanel)}
+                className="w-full px-4 py-3 bg-blue-50 hover:bg-blue-100 transition-colors flex items-center justify-between text-left"
+              >
+                <div className="flex items-center gap-2">
+                  <span className="text-blue-600">🔍</span>
+                  <span className="font-semibold text-blue-900 text-sm">診斷資訊</span>
+                  <span className="text-xs text-blue-600 bg-blue-100 px-2 py-0.5 rounded-full">
+                    {debugInfo.error ? '發現問題' : '正常'}
+                  </span>
+                </div>
+                <svg
+                  className={`w-5 h-5 text-blue-600 transition-transform ${showDebugPanel ? 'rotate-180' : ''}`}
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+
+              {showDebugPanel && (
+                <div className="p-4 bg-white space-y-4 text-xs animate-in slide-in-from-top duration-300">
+                  {/* Session 狀態 */}
+                  <div>
+                    <h5 className="font-bold text-gray-700 mb-2 flex items-center gap-2">
+                      <span>🔐</span>
+                      <span>Session 狀態</span>
+                    </h5>
+                    <div className="bg-gray-50 p-3 rounded border border-gray-200 space-y-1.5">
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">有效 Session:</span>
+                        <span className={debugInfo.sessionState.hasSession ? 'text-green-600 font-semibold' : 'text-red-600 font-semibold'}>
+                          {debugInfo.sessionState.hasSession ? '✅ 是' : '❌ 否'}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">Access Token:</span>
+                        <span className={debugInfo.sessionState.hasAccessToken ? 'text-green-600 font-semibold' : 'text-red-600 font-semibold'}>
+                          {debugInfo.sessionState.hasAccessToken ? '✅ 存在' : '❌ 缺失'}
+                        </span>
+                      </div>
+                      {debugInfo.sessionState.tokenExpiry && (
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Token 過期時間:</span>
+                          <span className="text-gray-800 font-mono text-[10px]">
+                            {new Date(debugInfo.sessionState.tokenExpiry).toLocaleString('zh-TW')}
+                          </span>
+                        </div>
+                      )}
+                      {debugInfo.sessionState.expiresIn && (
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">剩餘有效時間:</span>
+                          <span className="text-gray-800 font-semibold">{debugInfo.sessionState.expiresIn}</span>
+                        </div>
+                      )}
+                      {debugInfo.sessionState.userEmail && (
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">用戶:</span>
+                          <span className="text-gray-800 font-mono text-[10px]">{debugInfo.sessionState.userEmail}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* 請求資訊 */}
+                  {debugInfo.requestInfo && (
+                    <div>
+                      <h5 className="font-bold text-gray-700 mb-2 flex items-center gap-2">
+                        <span>📦</span>
+                        <span>請求資訊</span>
+                      </h5>
+                      <div className="bg-gray-50 p-3 rounded border border-gray-200 space-y-1.5">
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Edge Function:</span>
+                          <span className="text-gray-800 font-mono">{debugInfo.requestInfo.functionName}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">選單數量:</span>
+                          <span className="text-gray-800 font-semibold">{debugInfo.requestInfo.menusCount}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">請求大小:</span>
+                          <span className="text-gray-800">{(debugInfo.requestInfo.totalSize / 1024).toFixed(2)} KB</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* 錯誤詳情 */}
+                  {debugInfo.error && (
+                    <div>
+                      <h5 className="font-bold text-red-700 mb-2 flex items-center gap-2">
+                        <span>❌</span>
+                        <span>錯誤詳情</span>
+                      </h5>
+                      <div className="bg-red-50 p-3 rounded border border-red-200 space-y-1.5">
+                        <div className="flex justify-between">
+                          <span className="text-red-600">類型:</span>
+                          <span className="text-red-800 font-semibold">{debugInfo.error.type}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-red-600">訊息:</span>
+                          <span className="text-red-800 font-mono text-[10px] break-all">{debugInfo.error.message}</span>
+                        </div>
+                        {debugInfo.error.code && (
+                          <div className="flex justify-between">
+                            <span className="text-red-600">代碼:</span>
+                            <span className="text-red-800 font-mono">{debugInfo.error.code}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* 時間戳記 */}
+                  <div className="pt-2 border-t border-gray-200">
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-500">診斷時間:</span>
+                      <span className="text-gray-600 font-mono text-[10px]">
+                        {new Date(debugInfo.timestamp).toLocaleString('zh-TW', {
+                          year: 'numeric',
+                          month: '2-digit',
+                          day: '2-digit',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                          second: '2-digit',
+                          fractionalSecondDigits: 3
+                        })}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* 提示訊息 */}
+                  <div className="bg-blue-50 border border-blue-200 rounded p-3">
+                    <p className="text-blue-800 text-[11px] leading-relaxed">
+                      <span className="font-semibold">💡 提示：</span>
+                      {debugInfo.sessionState.hasAccessToken
+                        ? ' SDK 應該會自動附加 Authorization header 到請求中。如果仍然出現 401 錯誤，請檢查瀏覽器 Network 面板中的請求 Headers。'
+                        : ' ⚠️ 沒有找到 Access Token！這會導致 401 錯誤。請重新登入。'}
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* 錯誤詳情顯示 */}
           {errorDetails && (

@@ -113,19 +113,16 @@ export async function invokeEdgeFunction<T = unknown>(
 
   try {
     console.log(`[EdgeFunction] 📤 發送請求到 ${functionName}...`);
-    console.log(`[EdgeFunction] 🔑 使用 Token:`, session.access_token.substring(0, 30) + '...');
+    console.log(`[EdgeFunction] 🔑 Session 有效，SDK 將自動附加 Authorization header`);
 
     const startTime = Date.now();
 
-    // 🚨 關鍵修復：明確傳遞 Authorization header
+    // 🚨 關鍵修復：移除手動 header，讓 SDK 自動處理
+    // 原因：手動傳遞 header 可能與 SDK 內部機制衝突，導致 401 錯誤
+    // 參考：Broadcast Function 的成功模式（不手動傳遞 header）
     const { data, error } = await supabase.functions.invoke<EdgeFunctionResponse<T>>(
       functionName,
-      {
-        body: body as Record<string, any>,
-        headers: {
-          Authorization: `Bearer ${session.access_token}`
-        }
-      }
+      body ? { body: body as Record<string, any> } : undefined
     );
 
     const duration = Date.now() - startTime;

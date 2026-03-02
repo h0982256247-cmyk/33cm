@@ -155,21 +155,19 @@ export const PublishLineStep: React.FC<PublishLineStepProps> = ({ menus, onReset
       };
       setDebugInfo(currentDebugInfo);
 
-      // ✅ 完全移除手動 session 管理，讓 SDK 的 autoRefreshToken: true 自動處理
-      // 與成功的 Broadcast 功能保持一致的模式
-      // SDK 會在 Edge Function 調用前自動附加最新的 Authorization header
+      // ✅ 使用 PostgreSQL RPC，與 Broadcast 完全一致
+      // RPC 自動驗證 JWT，無需手動管理 session 或 API Key
+      // SDK 會自動附加 Authorization header，PostgreSQL 使用 auth.uid() 獲取用戶 ID
 
-      // 🚨 關鍵修復：使用 Edge Function（與計劃一致）
-      // 完全依賴 SDK 自動處理認證，不手動檢查或刷新 session
-      const { publishRichMenus } = await import('@/lib/richMenuPublish');
+      const { publishRichMenusViaRPC } = await import('@/lib/richMenuPublishRpc');
 
-      console.log('[PublishLineStep] 🚀 Publishing menus via Edge Function...');
+      console.log('[PublishLineStep] 🚀 Publishing menus via PostgreSQL RPC...');
       console.log('[PublishLineStep] 📊 Publishing', menus.length, 'menus');
-      console.log('[PublishLineStep] 🔑 Relying on SDK autoRefreshToken (same pattern as Broadcast)');
+      console.log('[PublishLineStep] 🔑 Using RPC (same pattern as Broadcast)');
       console.log('═══════════════════════════════════════════');
 
-      // 直接調用發布，SDK 會自動附加 Authorization header
-      const allResults = await publishRichMenus(menus, true);
+      // 直接調用發布，RPC 自動驗證 JWT 並使用 auth.uid()
+      const allResults = await publishRichMenusViaRPC(menus, true);
       console.log('[PublishLineStep] ✅ All menus published successfully');
 
       // 更新前端狀態與資料庫

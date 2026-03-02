@@ -31,73 +31,65 @@ serve(async (req) => {
 
     // 內層業務邏輯 try-catch
     try {
-    // 1. 驗證內部 API Key
-    const internalKey = req.headers.get('x-internal-key')
-    console.log('[richmenu-publish] Internal key present:', !!internalKey);
+    // 1. ✅ 從 JWT 獲取用戶資訊（Supabase 自動驗證）
+    // verify_jwt = true 時，Supabase 會自動驗證 Authorization header 中的 JWT
+    console.log('[richmenu-publish] 🔐 Using JWT authentication');
 
-    const expectedKey = Deno.env.get('INTERNAL_API_KEY')
-
-    if (!expectedKey) {
-      console.error('[richmenu-publish] ❌ CRITICAL: INTERNAL_API_KEY not configured');
-      return new Response(
-        JSON.stringify({
-          success: false,
-          error: {
-            code: 'CONFIG_ERROR',
-            message: '伺服器配置錯誤：缺少 INTERNAL_API_KEY',
-            details: 'Edge Function secret INTERNAL_API_KEY is not configured. Please contact administrator.'
-          }
-        }),
-        {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 200
-        }
-      );
-    }
-
-    if (internalKey !== expectedKey) {
-      console.error('[richmenu-publish] ❌ Invalid internal key');
-      console.error('[richmenu-publish] 🔍 Received key:', internalKey?.substring(0, 10) + '...');
+    // 從 Authorization header 獲取 JWT
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
+      console.error('[richmenu-publish] ❌ Missing Authorization header');
       return new Response(
         JSON.stringify({
           success: false,
           error: {
             code: 'UNAUTHORIZED',
             message: '未授權的請求',
-            details: 'Invalid internal API key'
+            details: 'Missing Authorization header'
           }
         }),
         {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 200
+          status: 401
         }
       );
     }
 
-    console.log('[richmenu-publish] ✅ Internal key validated');
+    // 使用 Supabase client 驗證 JWT 並獲取用戶
+    const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
+    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY') ?? '';
 
-    // 2. 獲取請求數據（包含 userId）
-    const { menus, cleanOldMenus, userId } = await req.json()
+    const supabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
+      global: {
+        headers: { Authorization: authHeader }
+      }
+    });
 
-    if (!userId) {
-      console.error('[richmenu-publish] ❌ Missing userId in request body');
+    const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
+
+    if (userError || !user) {
+      console.error('[richmenu-publish] ❌ Invalid JWT or user not found:', userError);
       return new Response(
         JSON.stringify({
           success: false,
           error: {
-            code: 'INVALID_REQUEST',
-            message: '請求缺少用戶 ID',
-            details: 'userId is required in request body'
+            code: 'UNAUTHORIZED',
+            message: '認證失敗',
+            details: userError?.message
           }
         }),
         {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 200
+          status: 401
         }
       );
     }
 
-    console.log('[richmenu-publish] ✅ User ID from request:', userId);
+    const userId = user.id;
+    console.log('[richmenu-publish] ✅ User authenticated:', userId);
+
+    // 2. 獲取請求數據
+    const { menus, cleanOldMenus } = await req.json();
 
     // 獲取環境變數（包含 service role key）
     const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';

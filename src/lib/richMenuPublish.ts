@@ -30,21 +30,10 @@ export async function publishRichMenus(
         });
     });
 
-    // ✅ 使用內部 API Key 驗證，取代 JWT
-    // 獲取當前用戶 ID
-    const { data: { user }, error: userError } = await supabase.auth.getUser();
-
-    if (userError || !user) {
-        console.error('[richMenuPublish] ❌ 無法取得用戶資訊:', userError);
-        throw new Error('請先登入才能發布 Rich Menu');
-    }
-
-    console.log('[richMenuPublish] 👤 User ID:', user.id);
-
+    // ✅ 使用 JWT 認證（SDK 自動附加）
     // 準備請求數據
     console.log('[richMenuPublish] 📦 準備請求數據...');
     const requestData = {
-        userId: user.id,  // ✅ 傳遞用戶 ID
         menus: menus.map((menu, index) => {
             const menuData = buildLineRichMenuPayload(menu, menus);
             const aliasId = menu.id.replace(/-/g, '');
@@ -71,30 +60,18 @@ export async function publishRichMenus(
     try {
         console.log('[richMenuPublish] 📤 調用 Edge Function...');
         console.log('[richMenuPublish] 🎯 Function: richmenu-publish');
-        console.log('[richMenuPublish] 🔑 使用內部 API Key 驗證');
-
-        // 獲取內部 API Key
-        const internalApiKey = import.meta.env.VITE_INTERNAL_API_KEY as string | undefined;
-
-        if (!internalApiKey) {
-            console.error('[richMenuPublish] ❌ INTERNAL_API_KEY 未配置');
-            throw new Error('系統配置錯誤：缺少 INTERNAL_API_KEY，請聯繫管理員');
-        }
-
-        console.log('[richMenuPublish] 🔐 API Key 前綴:', internalApiKey.substring(0, 10) + '...');
+        console.log('[richMenuPublish] 🔑 使用 JWT 認證（SDK 自動附加）');
 
         const startTime = Date.now();
 
-        // 🚨 使用內部 API Key 驗證，取代 JWT
+        // ✅ SDK 會自動附加 Authorization: Bearer <JWT>
+        // Edge Function 設定 verify_jwt = true 會自動驗證
         const { data, error } = await supabase.functions.invoke<{
             success: boolean;
             data?: RichMenuPublishResponse;
             error?: { code: string; message: string; details?: unknown };
         }>('richmenu-publish', {
-            body: requestData,
-            headers: {
-                'x-internal-key': internalApiKey,
-            }
+            body: requestData
         });
 
         const duration = Date.now() - startTime;

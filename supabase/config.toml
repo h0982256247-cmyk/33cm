@@ -1,4 +1,4 @@
 # Supabase Edge Functions Configuration
 
 [functions.richmenu-publish]
-verify_jwt = false  # 關閉 JWT 驗證，改用內部 API Key
+verify_jwt = true  # ✅ 啟用 JWT 驗證，使用標準 Supabase 認證

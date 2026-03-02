@@ -155,19 +155,19 @@ export const PublishLineStep: React.FC<PublishLineStepProps> = ({ menus, onReset
       };
       setDebugInfo(currentDebugInfo);
 
-      // ✅ 使用 PostgreSQL RPC，與 Broadcast 完全一致
-      // RPC 自動驗證 JWT，無需手動管理 session 或 API Key
-      // SDK 會自動附加 Authorization header，PostgreSQL 使用 auth.uid() 獲取用戶 ID
+      // ✅ 使用 Edge Function + JWT 認證
+      // SDK 會自動附加 Authorization header（JWT）
+      // Edge Function 驗證 JWT 並從中獲取用戶 ID
 
-      const { publishRichMenusViaRPC } = await import('@/lib/richMenuPublishRpc');
+      const { publishRichMenus } = await import('@/lib/richMenuPublish');
 
-      console.log('[PublishLineStep] 🚀 Publishing menus via PostgreSQL RPC...');
+      console.log('[PublishLineStep] 🚀 Publishing menus via Edge Function...');
       console.log('[PublishLineStep] 📊 Publishing', menus.length, 'menus');
-      console.log('[PublishLineStep] 🔑 Using RPC (same pattern as Broadcast)');
+      console.log('[PublishLineStep] 🔑 Using Edge Function with JWT authentication');
       console.log('═══════════════════════════════════════════');
 
-      // 直接調用發布，RPC 自動驗證 JWT 並使用 auth.uid()
-      const allResults = await publishRichMenusViaRPC(menus, true);
+      // 直接調用發布，SDK 自動附加 JWT
+      const allResults = await publishRichMenus(menus, true);
       console.log('[PublishLineStep] ✅ All menus published successfully');
 
       // 更新前端狀態與資料庫

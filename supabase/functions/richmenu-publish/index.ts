@@ -31,19 +31,21 @@ serve(async (req) => {
 
     // 內層業務邏輯 try-catch
     try {
-    // 1. 驗證用戶身份
-    const authHeader = req.headers.get('Authorization')
-    console.log('[richmenu-publish] Auth header present:', !!authHeader);
+    // 1. 驗證內部 API Key
+    const internalKey = req.headers.get('x-internal-key')
+    console.log('[richmenu-publish] Internal key present:', !!internalKey);
 
-    if (!authHeader) {
-      console.error('[richmenu-publish] ❌ Missing Authorization header');
+    const expectedKey = Deno.env.get('INTERNAL_API_KEY')
+
+    if (!expectedKey) {
+      console.error('[richmenu-publish] ❌ CRITICAL: INTERNAL_API_KEY not configured');
       return new Response(
         JSON.stringify({
           success: false,
           error: {
-            code: 'UNAUTHORIZED',
-            message: '請先登入',
-            details: 'Missing Authorization header'
+            code: 'CONFIG_ERROR',
+            message: '伺服器配置錯誤：缺少 INTERNAL_API_KEY',
+            details: 'Edge Function secret INTERNAL_API_KEY is not configured. Please contact administrator.'
           }
         }),
         {
@@ -53,15 +55,57 @@ serve(async (req) => {
       );
     }
 
+    if (internalKey !== expectedKey) {
+      console.error('[richmenu-publish] ❌ Invalid internal key');
+      console.error('[richmenu-publish] 🔍 Received key:', internalKey?.substring(0, 10) + '...');
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: {
+            code: 'UNAUTHORIZED',
+            message: '未授權的請求',
+            details: 'Invalid internal API key'
+          }
+        }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 200
+        }
+      );
+    }
+
+    console.log('[richmenu-publish] ✅ Internal key validated');
+
+    // 2. 獲取請求數據（包含 userId）
+    const { menus, cleanOldMenus, userId } = await req.json()
+
+    if (!userId) {
+      console.error('[richmenu-publish] ❌ Missing userId in request body');
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: {
+            code: 'INVALID_REQUEST',
+            message: '請求缺少用戶 ID',
+            details: 'userId is required in request body'
+          }
+        }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 200
+        }
+      );
+    }
+
+    console.log('[richmenu-publish] ✅ User ID from request:', userId);
+
     // 獲取環境變數（包含 service role key）
     const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
-    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY') ?? '';
     const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 
     // 詳細的環境變數檢查
     console.log('[richmenu-publish] Environment check:', {
       hasUrl: !!supabaseUrl,
-      hasAnonKey: !!supabaseAnonKey,
       hasServiceKey: !!serviceRoleKey,
       urlPrefix: supabaseUrl?.substring(0, 20) + '...'
     });
@@ -70,7 +114,6 @@ serve(async (req) => {
       console.error('[richmenu-publish] ❌ CRITICAL: Missing SERVICE_ROLE_KEY');
       console.error('[richmenu-publish] Please set it using: supabase secrets set SUPABASE_SERVICE_ROLE_KEY=<key>');
 
-      // ✅ 返回 200 而不是拋出錯誤
       return new Response(
         JSON.stringify({
           success: false,
@@ -87,59 +130,14 @@ serve(async (req) => {
       );
     }
 
-    // 驗證用戶（使用 anon key + JWT）
-    const supabase = createClient(
-      supabaseUrl,
-      supabaseAnonKey,
-      {
-        global: {
-          headers: { Authorization: authHeader },
-        },
-      }
-    )
-
-    // 驗證 JWT 並獲取用戶
-    const { data: { user }, error: userError } = await supabase.auth.getUser()
-    if (userError || !user) {
-      console.error('[richmenu-publish] ❌ User verification failed');
-      console.error('[richmenu-publish] 🔍 Error details:', {
-        message: userError?.message,
-        name: userError?.name,
-        hasUser: !!user
-      });
-      return new Response(
-        JSON.stringify({
-          success: false,
-          error: {
-            code: 'AUTH_FAILED',
-            message: '認證失敗',
-            details: {
-              error: userError?.message || 'No user found',
-              name: userError?.name
-            }
-          }
-        }),
-        {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 200
-        }
-      );
-    }
-
-    console.log('[richmenu-publish] ✅ User authenticated:', user.id)
-    console.log('[richmenu-publish] 🔍 User email:', user.email)
-
-    // 2. 獲取請求數據
-    const { menus, cleanOldMenus } = await req.json()
-
     // 3. 從資料庫獲取 LINE Access Token
-    // ✅ 關鍵修復：使用 service role client 繞過 RLS
+    // ✅ 使用 service role client 繞過 RLS
     const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey);
 
     const { data: channelData, error: channelError } = await supabaseAdmin
       .from('rm_line_channels')
       .select('access_token_encrypted')
-      .eq('user_id', user.id)
+      .eq('user_id', userId)
       .eq('is_active', true)
       .single()
 

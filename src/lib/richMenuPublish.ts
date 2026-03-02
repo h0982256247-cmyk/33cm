@@ -30,12 +30,21 @@ export async function publishRichMenus(
         });
     });
 
-    // ✅ 移除前端 session 檢查，Edge Function 會自動驗證 JWT
-    // SDK 會在 functions.invoke() 時自動附加最新的 Authorization header
+    // ✅ 使用內部 API Key 驗證，取代 JWT
+    // 獲取當前用戶 ID
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+
+    if (userError || !user) {
+        console.error('[richMenuPublish] ❌ 無法取得用戶資訊:', userError);
+        throw new Error('請先登入才能發布 Rich Menu');
+    }
+
+    console.log('[richMenuPublish] 👤 User ID:', user.id);
 
     // 準備請求數據
     console.log('[richMenuPublish] 📦 準備請求數據...');
     const requestData = {
+        userId: user.id,  // ✅ 傳遞用戶 ID
         menus: menus.map((menu, index) => {
             const menuData = buildLineRichMenuPayload(menu, menus);
             const aliasId = menu.id.replace(/-/g, '');
@@ -62,19 +71,30 @@ export async function publishRichMenus(
     try {
         console.log('[richMenuPublish] 📤 調用 Edge Function...');
         console.log('[richMenuPublish] 🎯 Function: richmenu-publish');
-        console.log('[richMenuPublish] 🔑 使用直接調用模式（與成功的 Broadcast 一致）');
+        console.log('[richMenuPublish] 🔑 使用內部 API Key 驗證');
+
+        // 獲取內部 API Key
+        const internalApiKey = import.meta.env.VITE_INTERNAL_API_KEY as string | undefined;
+
+        if (!internalApiKey) {
+            console.error('[richMenuPublish] ❌ INTERNAL_API_KEY 未配置');
+            throw new Error('系統配置錯誤：缺少 INTERNAL_API_KEY，請聯繫管理員');
+        }
+
+        console.log('[richMenuPublish] 🔐 API Key 前綴:', internalApiKey.substring(0, 10) + '...');
 
         const startTime = Date.now();
 
-        // 🚨 關鍵修復：完全依賴 SDK 自動處理認證
-        // 與成功的 Broadcast Function 保持一致（不手動管理 session/headers）
-        // SDK 的 autoRefreshToken: true 會自動處理 token 刷新
+        // 🚨 使用內部 API Key 驗證，取代 JWT
         const { data, error } = await supabase.functions.invoke<{
             success: boolean;
             data?: RichMenuPublishResponse;
             error?: { code: string; message: string; details?: unknown };
         }>('richmenu-publish', {
-            body: requestData
+            body: requestData,
+            headers: {
+                'x-internal-key': internalApiKey,
+            }
         });
 
         const duration = Date.now() - startTime;

@@ -32,24 +32,31 @@ interface DebugInfo {
   error?: {
     type: string;
     message: string;
+    httpStatus?: number;
     code?: string;
     details?: any;
   };
 }
 
-// 根據錯誤提供建議
+// 根據錯誤和 HTTP status 提供建議
 function getSuggestion(error: any): string {
-  if (error.message?.includes('401') || error.message?.includes('Unauthorized') || error.message?.includes('認證')) {
+  const httpStatus = error?.httpStatus;
+
+  // 優先根據 HTTP status 提供建議
+  if (httpStatus === 401 || error.message?.includes('401') || error.message?.includes('Unauthorized') || error.message?.includes('認證')) {
     return '請嘗試重新登入或重新整理頁面';
   }
-  if (error.message?.includes('網路') || error.message?.includes('INVOCATION')) {
+  if (httpStatus === 400 || httpStatus === 404 || error.code === 'TOKEN_NOT_FOUND') {
+    return '請檢查 LINE Channel 設定和 Token 是否有效';
+  }
+  if (httpStatus === 500 || httpStatus === 502 || error.message?.includes('配置') || error.message?.includes('SERVICE_ROLE_KEY')) {
+    return '請聯繫系統管理員檢查伺服器配置';
+  }
+  if (error.message?.includes('網路') || error.message?.includes('INVOCATION') || error.code === 'INVOCATION_ERROR') {
     return '請檢查網路連線後重試';
   }
   if (error.message?.includes('LINE')) {
     return '請檢查 LINE Channel 設定和 Token 是否有效';
-  }
-  if (error.message?.includes('配置') || error.message?.includes('SERVICE_ROLE_KEY')) {
-    return '請聯繫系統管理員檢查伺服器配置';
   }
   return '請查看瀏覽器 Console 了解詳細資訊';
 }
@@ -184,7 +191,9 @@ export const PublishLineStep: React.FC<PublishLineStepProps> = ({ menus, onReset
     } catch (error: any) {
       console.error('[PublishLineStep] ❌ 發布失敗:', error);
       console.error('[PublishLineStep] 🔍 錯誤類型:', error?.constructor?.name);
+      console.error('[PublishLineStep] 🔍 HTTP Status:', error?.httpStatus);
       console.error('[PublishLineStep] 🔍 錯誤訊息:', error?.message);
+      console.error('[PublishLineStep] 🔍 錯誤代碼:', error?.code);
       console.error('[PublishLineStep] 🔍 完整錯誤:', error);
       console.log('═══════════════════════════════════════════');
 
@@ -194,6 +203,7 @@ export const PublishLineStep: React.FC<PublishLineStepProps> = ({ menus, onReset
         error: {
           type: error?.constructor?.name || 'Error',
           message: error?.message || '未知錯誤',
+          httpStatus: error?.httpStatus,
           code: error?.code,
           details: error?.details || error?.stack,
         },
@@ -207,7 +217,10 @@ export const PublishLineStep: React.FC<PublishLineStepProps> = ({ menus, onReset
 
       setErrorDetails(errorInfo);
       setShowDebugPanel(true);  // 失敗時自動展開診斷面板
-      alert(`發布失敗: ${error.message}`);
+
+      // 在 alert 中顯示 HTTP status（如果有）
+      const statusText = error?.httpStatus ? ` (HTTP ${error.httpStatus})` : '';
+      alert(`發布失敗${statusText}: ${error.message}`);
       setStatus('idle');
     }
   };
@@ -459,6 +472,12 @@ export const PublishLineStep: React.FC<PublishLineStepProps> = ({ menus, onReset
                           <span className="text-red-600">類型:</span>
                           <span className="text-red-800 font-semibold">{debugInfo.error.type}</span>
                         </div>
+                        {debugInfo.error.httpStatus && (
+                          <div className="flex justify-between">
+                            <span className="text-red-600">HTTP Status:</span>
+                            <span className="text-red-800 font-mono font-bold">{debugInfo.error.httpStatus}</span>
+                          </div>
+                        )}
                         <div className="flex justify-between">
                           <span className="text-red-600">訊息:</span>
                           <span className="text-red-800 font-mono text-[10px] break-all">{debugInfo.error.message}</span>

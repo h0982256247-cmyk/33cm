@@ -77,16 +77,30 @@ export async function publishRichMenus(
         const duration = Date.now() - startTime;
         console.log('[richMenuPublish] ⏱️ 請求耗時:', duration, 'ms');
 
-        // 處理 Supabase client 層面的錯誤
+        // 處理 Supabase client 層面的錯誤（網路、連線等）
         if (error) {
             console.error('[richMenuPublish] ❌ Edge Function 調用錯誤:', error);
-            throw new Error(`Edge Function 調用失敗: ${error.message}`);
+            console.error('[richMenuPublish] 🔍 HTTP Status:', (error as any).status);
+            console.error('[richMenuPublish] 🔍 Error Context:', (error as any).context);
+
+            const httpStatus = (error as any).status || 500;
+            const enhancedError = new Error(`Edge Function 調用失敗: ${error.message}`) as any;
+            enhancedError.httpStatus = httpStatus;
+            enhancedError.code = 'INVOCATION_ERROR';
+            enhancedError.details = { originalError: error, httpStatus };
+            throw enhancedError;
         }
 
-        // 處理業務邏輯錯誤
+        // 處理業務邏輯錯誤（從 Edge Function 返回的錯誤）
         if (!data || !data.success) {
             console.error('[richMenuPublish] ❌ 業務邏輯錯誤:', data?.error);
-            throw new Error(data?.error?.message || '發布失敗');
+
+            const businessError = new Error(data?.error?.message || '發布失敗') as any;
+            businessError.code = data?.error?.code || 'UNKNOWN_ERROR';
+            businessError.details = data?.error?.details;
+            // 從響應體推測 HTTP status（雖然 Supabase SDK 可能不暴露）
+            businessError.httpStatus = 500;
+            throw businessError;
         }
 
         if (!data.data) {
@@ -109,20 +123,22 @@ export async function publishRichMenus(
         console.error('[richMenuPublish] ❌ 發布失敗');
         console.error('[richMenuPublish] 🔍 錯誤類型:', error?.constructor?.name);
         console.error('[richMenuPublish] 🔍 錯誤訊息:', error?.message);
+        console.error('[richMenuPublish] 🔍 HTTP Status:', error?.httpStatus);
         console.error('[richMenuPublish] 🔍 錯誤代碼:', error?.code);
         console.error('[richMenuPublish] 🔍 錯誤詳情:', error?.details);
         console.error('[richMenuPublish] 🔍 完整錯誤:', error);
         console.log('═══════════════════════════════════════════');
 
-        // 根據錯誤類型提供友好的錯誤訊息
+        // 根據錯誤類型和 HTTP status 提供友好的錯誤訊息
         let errorMessage = '發布失敗';
+        const httpStatus = error?.httpStatus || 500;
 
         if (error instanceof Error) {
             errorMessage = error.message;
 
-            // 針對不同錯誤類型提供解決建議
-            if (error.message.includes('Unauthorized') || error.message.includes('401')) {
-                errorMessage = '❌ 認證失敗\n\n' +
+            // 針對不同 HTTP status 和錯誤類型提供解決建議
+            if (httpStatus === 401 || error.message.includes('Unauthorized') || error.message.includes('401') || error.message.includes('認證')) {
+                errorMessage = `❌ 認證失敗 (HTTP ${httpStatus})\n\n` +
                               '可能原因：\n' +
                               '• 登入狀態已過期\n' +
                               '• Token 無效或已撤銷\n\n' +
@@ -130,19 +146,26 @@ export async function publishRichMenus(
                               '1. 重新整理頁面 (Cmd/Ctrl + R)\n' +
                               '2. 重新登入\n' +
                               '3. 檢查網路連線';
-            } else if (error.message.includes('SERVICE_ROLE_KEY') || error.message.includes('配置錯誤')) {
-                errorMessage = '❌ 伺服器配置錯誤\n\n' +
+            } else if (httpStatus === 400 || error.code === 'TOKEN_NOT_FOUND' || httpStatus === 404) {
+                errorMessage = `❌ 請求錯誤 (HTTP ${httpStatus})\n\n` +
+                              error.message + '\n\n' +
+                              '建議解決方案：\n' +
+                              '1. 檢查是否已綁定 LINE Channel\n' +
+                              '2. 確認 LINE Access Token 是否有效\n' +
+                              '3. 重新設定 LINE Channel 連接';
+            } else if (httpStatus === 500 || httpStatus === 502 || error.message.includes('SERVICE_ROLE_KEY') || error.message.includes('配置錯誤')) {
+                errorMessage = `❌ 伺服器錯誤 (HTTP ${httpStatus})\n\n` +
                               error.message + '\n\n' +
                               '請聯繫系統管理員處理。';
-            } else if (error.message.includes('INVOCATION_ERROR')) {
-                errorMessage = '❌ 網路連線錯誤\n\n' +
+            } else if (error.code === 'INVOCATION_ERROR') {
+                errorMessage = `❌ 網路連線錯誤 (HTTP ${httpStatus})\n\n` +
                               '無法連接到伺服器。\n\n' +
                               '建議解決方案：\n' +
                               '1. 檢查網路連線\n' +
                               '2. 稍後再試\n' +
                               '3. 如果問題持續，請聯繫技術支援';
-            } else if (error.message.includes('LINE')) {
-                errorMessage = '❌ LINE API 錯誤\n\n' +
+            } else if (error.message.includes('LINE') || error.message.includes('Failed to create menu') || error.message.includes('Failed to upload image')) {
+                errorMessage = `❌ LINE API 錯誤 (HTTP ${httpStatus})\n\n` +
                               error.message + '\n\n' +
                               '建議解決方案：\n' +
                               '1. 檢查 LINE Channel Access Token 是否有效\n' +
@@ -151,6 +174,11 @@ export async function publishRichMenus(
             }
         }
 
-        throw new Error(errorMessage);
+        // 保留錯誤對象的所有屬性（status, code, details）
+        const enhancedError = new Error(errorMessage) as any;
+        enhancedError.httpStatus = httpStatus;
+        enhancedError.code = error?.code;
+        enhancedError.details = error?.details;
+        throw enhancedError;
     }
 }

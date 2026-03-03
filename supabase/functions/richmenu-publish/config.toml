@@ -1,0 +1,4 @@
+# Supabase Edge Functions Configuration
+
+[functions.richmenu-publish]
+verify_jwt = false  # ✅ 啟用 JWT 驗證，使用標準 Supabase 認證

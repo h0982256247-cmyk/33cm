@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>測試 Supabase Auth Headers</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body {
+            font-family: 'Courier New', monospace;
+            max-width: 1200px;
+            margin: 40px auto;
+            padding: 20px;
+            background: #1a1a1a;
+            color: #00ff00;
+        }
+        .section {
+            background: #000;
+            border: 1px solid #00ff00;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 5px;
+        }
+        button {
+            background: #00ff00;
+            color: #000;
+            border: none;
+            padding: 10px 20px;
+            cursor: pointer;
+            font-weight: bold;
+            margin: 5px;
+        }
+        button:hover {
+            background: #00cc00;
+        }
+        pre {
+            background: #0a0a0a;
+            padding: 15px;
+            overflow-x: auto;
+            border-left: 3px solid #00ff00;
+        }
+        .error { color: #ff0000; }
+        .success { color: #00ff00; }
+        .warning { color: #ffaa00; }
+        h2 { color: #00aaff; }
+    </style>
+</head>
+<body>
+    <h1>🔍 Supabase Auth & Headers 診斷工具</h1>
+
+    <div class="section">
+        <h2>📋 測試步驟</h2>
+        <ol>
+            <li>確保你已經在主應用程式中登入</li>
+            <li>點擊下方按鈕測試不同的調用方式</li>
+            <li>查看 Console 輸出和結果區塊</li>
+        </ol>
+    </div>
+
+    <div class="section">
+        <h2>🔧 測試控制</h2>
+        <button onclick="testSessionInfo()">1️⃣ 檢查 Session 資訊</button>
+        <button onclick="testAutoHeaders()">2️⃣ 測試自動 Headers (SDK 預設)</button>
+        <button onclick="testManualHeaders()">3️⃣ 測試手動 Headers (目前方案)</button>
+        <button onclick="testNetworkRequest()">4️⃣ 測試原生 Fetch (對照組)</button>
+        <button onclick="clearResults()">🗑️ 清除結果</button>
+    </div>
+
+    <div class="section">
+        <h2>📊 測試結果</h2>
+        <div id="results"></div>
+    </div>
+
+    <script>
+        // 初始化 Supabase Client (與主應用程式相同配置)
+        const supabaseUrl = 'https://mslliuocrcgqvppvnvqo.supabase.co';
+        const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1zbGxpdW9jcmNncXZwcHZudnFvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAzMzEzNzEsImV4cCI6MjA4NTkwNzM3MX0.0MTJmaIuYxHYHwq4MMdPcn7tyTRgj0JoECS6D-FlTwQ';
+
+        const supabase = window.supabase.createClient(supabaseUrl, supabaseAnonKey, {
+            auth: {
+                persistSession: true,
+                autoRefreshToken: true,
+                detectSessionInUrl: true,
+                storage: {
+                    getItem: (key) => window.sessionStorage.getItem(key),
+                    setItem: (key, value) => window.sessionStorage.setItem(key, value),
+                    removeItem: (key) => window.sessionStorage.removeItem(key),
+                },
+            },
+        });
+
+        const resultsDiv = document.getElementById('results');
+
+        function addResult(title, data, type = 'info') {
+            const className = type === 'error' ? 'error' : type === 'success' ? 'success' : 'warning';
+            const emoji = type === 'error' ? '❌' : type === 'success' ? '✅' : '⚠️';
+
+            resultsDiv.innerHTML += `
+                <div class="${className}">
+                    <h3>${emoji} ${title}</h3>
+                    <pre>${typeof data === 'string' ? data : JSON.stringify(data, null, 2)}</pre>
+                </div>
+            `;
+            resultsDiv.scrollTop = resultsDiv.scrollHeight;
+        }
+
+        function clearResults() {
+            resultsDiv.innerHTML = '';
+        }
+
+        async function testSessionInfo() {
+            console.log('=== 測試 1: 檢查 Session 資訊 ===');
+
+            const { data: { session }, error } = await supabase.auth.getSession();
+
+            if (error) {
+                addResult('Session 錯誤', error, 'error');
+                console.error('Session Error:', error);
+                return;
+            }
+
+            if (!session) {
+                addResult('無 Session', '請先在主應用程式中登入', 'error');
+                return;
+            }
+
+            const sessionInfo = {
+                '用戶 ID': session.user.id,
+                '用戶 Email': session.user.email,
+                'Access Token (前 50 字元)': session.access_token?.substring(0, 50) + '...',
+                'Access Token 長度': session.access_token?.length,
+                '過期時間': new Date(session.expires_at * 1000).toLocaleString('zh-TW'),
+                '剩餘時間 (秒)': Math.floor((session.expires_at * 1000 - Date.now()) / 1000),
+                'Refresh Token 存在': !!session.refresh_token,
+            };
+
+            addResult('Session 資訊', sessionInfo, 'success');
+            console.log('Session Info:', sessionInfo);
+        }
+
+        async function testAutoHeaders() {
+            console.log('=== 測試 2: SDK 自動 Headers ===');
+
+            const { data: { session } } = await supabase.auth.getSession();
+            if (!session) {
+                addResult('錯誤', '請先登入', 'error');
+                return;
+            }
+
+            try {
+                const startTime = Date.now();
+
+                // 不傳遞任何 headers,讓 SDK 自動處理
+                const { data, error } = await supabase.functions.invoke('richmenu-publish', {
+                    body: {
+                        menus: [],
+                        cleanOldMenus: false
+                    }
+                });
+
+                const duration = Date.now() - startTime;
+
+                if (error) {
+                    addResult('SDK 自動 Headers - 失敗', {
+                        'HTTP Status': error.status || 'N/A',
+                        'Error Message': error.message,
+                        'Error Name': error.name,
+                        '耗時 (ms)': duration
+                    }, 'error');
+                    console.error('Auto Headers Error:', error);
+                } else {
+                    addResult('SDK 自動 Headers - 成功', {
+                        'Response': data,
+                        '耗時 (ms)': duration
+                    }, 'success');
+                    console.log('Auto Headers Success:', data);
+                }
+            } catch (err) {
+                addResult('Exception', err.message, 'error');
+                console.error('Exception:', err);
+            }
+        }
+
+        async function testManualHeaders() {
+            console.log('=== 測試 3: 手動附加 Headers ===');
+
+            const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+
+            if (sessionError || !session?.access_token) {
+                addResult('錯誤', sessionError?.message || '無有效 session', 'error');
+                return;
+            }
+
+            try {
+                const startTime = Date.now();
+
+                // 手動附加 headers (目前的方案)
+                const { data, error } = await supabase.functions.invoke('richmenu-publish', {
+                    body: {
+                        menus: [],
+                        cleanOldMenus: false
+                    },
+                    headers: {
+                        'Authorization': `Bearer ${session.access_token}`,
+                        'apikey': supabaseAnonKey,
+                    }
+                });
+
+                const duration = Date.now() - startTime;
+
+                if (error) {
+                    addResult('手動 Headers - 失敗', {
+                        'HTTP Status': error.status || 'N/A',
+                        'Error Message': error.message,
+                        'Error Name': error.name,
+                        '耗時 (ms)': duration,
+                        '使用的 Token (前 30 字元)': session.access_token.substring(0, 30) + '...',
+                        'Token 長度': session.access_token.length
+                    }, 'error');
+                    console.error('Manual Headers Error:', error);
+                } else {
+                    addResult('手動 Headers - 成功', {
+                        'Response': data,
+                        '耗時 (ms)': duration
+                    }, 'success');
+                    console.log('Manual Headers Success:', data);
+                }
+            } catch (err) {
+                addResult('Exception', err.message, 'error');
+                console.error('Exception:', err);
+            }
+        }
+
+        async function testNetworkRequest() {
+            console.log('=== 測試 4: 原生 Fetch ===');
+
+            const { data: { session } } = await supabase.auth.getSession();
+            if (!session) {
+                addResult('錯誤', '請先登入', 'error');
+                return;
+            }
+
+            try {
+                const startTime = Date.now();
+
+                const response = await fetch(`${supabaseUrl}/functions/v1/richmenu-publish`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${session.access_token}`,
+                        'apikey': supabaseAnonKey,
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        menus: [],
+                        cleanOldMenus: false
+                    })
+                });
+
+                const duration = Date.now() - startTime;
+                const responseData = await response.json();
+
+                addResult('原生 Fetch', {
+                    'HTTP Status': response.status,
+                    'Status Text': response.statusText,
+                    'Response Headers': Object.fromEntries(response.headers.entries()),
+                    'Response Body': responseData,
+                    '耗時 (ms)': duration
+                }, response.ok ? 'success' : 'error');
+
+                console.log('Native Fetch:', {
+                    status: response.status,
+                    data: responseData
+                });
+            } catch (err) {
+                addResult('Exception', err.message, 'error');
+                console.error('Exception:', err);
+            }
+        }
+
+        // 頁面載入時顯示指示
+        window.addEventListener('load', () => {
+            addResult('準備就緒', '請確保已在主應用程式中登入,然後開始測試', 'warning');
+        });
+    </script>
+</body>
+</html>

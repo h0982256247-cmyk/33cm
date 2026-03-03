@@ -80,10 +80,13 @@ export async function publishRichMenus(
         // 處理 Supabase client 層面的錯誤（網路、連線等）
         if (error) {
             console.error('[richMenuPublish] ❌ Edge Function 調用錯誤:', error);
-            console.error('[richMenuPublish] 🔍 HTTP Status:', (error as any).status);
+            console.error('[richMenuPublish] 🔍 Error object:', error);
             console.error('[richMenuPublish] 🔍 Error Context:', (error as any).context);
 
-            const httpStatus = (error as any).status || 500;
+            // Supabase SDK 的 HTTP status 在 context.status 中
+            const httpStatus = (error as any).context?.status || (error as any).status || 500;
+            console.error('[richMenuPublish] 🔍 HTTP Status:', httpStatus);
+
             const enhancedError = new Error(`Edge Function 調用失敗: ${error.message}`) as any;
             enhancedError.httpStatus = httpStatus;
             enhancedError.code = 'INVOCATION_ERROR';
